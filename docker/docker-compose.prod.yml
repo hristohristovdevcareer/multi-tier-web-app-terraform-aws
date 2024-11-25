@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  web-app:
+    image: ${PROJECT_NAME}-web-app:${IMAGE_TAG} # Specify the image with a variable tag
+    ports:
+      - "8000:8000" # Expose the application port
+    environment:
+      - SERVER_URL=${SERVER_URL}
+    networks:
+      - app-network
+
+  server:
+    image: ${PROJECT_NAME}-server:${IMAGE_TAG} # Specify the image with a variable tag
+    ports:
+      - "8080:8080" # Expose the application port
+    environment:
+      - NODE_ENV=production
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

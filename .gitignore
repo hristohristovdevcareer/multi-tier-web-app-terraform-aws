@@ -1,0 +1,16 @@
+node_modules
+.env*
+*.env
+*/build
+*/.svelte-kit
+*/package
+!.env.example
+vite.config.js.timestamp-*
+.DS_Store
+*.tfstate
+*.tfvars
+*.tfstate.backup
+*.tfplan
+crash.log
+.terraform/
+.terraform.lock.hcl

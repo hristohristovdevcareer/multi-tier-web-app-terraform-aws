@@ -1,0 +1,40 @@
+version: "3.9"
+
+services:
+  web-app:
+    build:
+      context: ../client
+      dockerfile: web-app.Dockerfile
+      args:
+        PROJECT_NAME: ${PROJECT_NAME}
+    image: ${PROJECT_NAME}-web-app:latest # Specify the image name for ECR
+    ports:
+      - "8000:8000" # Expose the application port
+    volumes:
+      - ../client:/app
+    environment:
+      - SERVER_URL=${SERVER_URL}
+    networks:
+      - app-network
+    command: npm run dev # Hot reloading
+
+  server:
+    build:
+      context: ../server
+      dockerfile: server.Dockerfile
+      args:
+        PROJECT_NAME: ${PROJECT_NAME}
+    image: ${PROJECT_NAME}-server:latest # Specify the image name for ECR
+    ports:
+      - "8080:8080" # Expose the application port 
+    volumes:
+      - ../server:/app
+    networks:
+      - app-network
+    environment:
+      - NODE_ENV=development
+    command: npm run dev
+
+networks:
+  app-network:
+    driver: bridge
