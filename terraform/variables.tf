@@ -118,3 +118,13 @@ variable "CIDR_SUBNET_PRIVATE" {
   description = "Private Subnet CIDR IP"
   type        = string
 }
+
+variable "NAT_INSTANCE_AMI" {
+  description = "AMI for the NAT instance"
+  type        = string
+}
+
+variable "NAT_INSTANCE_TYPE" {
+  description = "Instance type for the NAT instance"
+  type        = string
+}
