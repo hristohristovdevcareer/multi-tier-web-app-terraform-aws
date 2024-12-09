@@ -76,30 +76,31 @@ variable "REPO_URL" {
   type        = string
 }
 
-variable "GITLAB_PRIVATE_KEY" {
-  description = "Private key to connect to gitlab through ssh"
-  type        = string
-  sensitive   = true
-}
+# variable "GITLAB_PRIVATE_KEY" {
+#   description = "Private key to connect to gitlab through ssh"
+#   type        = string
+#   sensitive   = true
+# }
 
-variable "GITLAB_PUBLIC_KEY" {
-  description = "Private key to connect to gitlab through ssh"
-  type        = string
-  sensitive   = true
-}
+# variable "GITLAB_PUBLIC_KEY" {
+#   description = "Private key to connect to gitlab through ssh"
+#   type        = string
+#   sensitive   = true
+# }
 
-variable "SSH_EC2" {
-  description = "SSH key-pair"
-  type        = string
-  sensitive   = true
-}
+# variable "SSH_EC2" {
+#   description = "SSH key-pair"
+#   type        = string
+#   sensitive   = true
+# }
 
 variable "REGION" {
   description = "Region to host the infrastructure"
   type        = string
 }
 
-variable "services" {
+# Docker Compose and Dockerfile paths for each service
+variable "SERVICES" {
   description = "Configuration for Docker build and push"
   type = map(object({
     docker_compose = string
@@ -128,3 +129,15 @@ variable "NAT_INSTANCE_TYPE" {
   description = "Instance type for the NAT instance"
   type        = string
 }
+
+variable "TF_PROFILE" {
+  description = "AWS profile"
+  type        = string
+}
+
+variable "VAULT_ADDR" {
+  description = "Vault address"
+  type        = string
+}
+
+

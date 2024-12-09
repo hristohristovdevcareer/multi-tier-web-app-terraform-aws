@@ -44,8 +44,13 @@ resource "null_resource" "docker_build_and_push" {
       aws ecr get-login-password --region ${var.REGION} | \
       docker login --username AWS --password-stdin ${each.value.ecr_repo_url}
 
-      docker tag ${each.value.project_name}:${version_tag} ${each.value.ecr_repo_url}:${version_tag}
-      docker push ${each.value.ecr_repo_url}:${version_tag}
+      docker tag ${each.value.project_name}:v.1.0.0 ${each.value.ecr_repo_url}:v.1.0.0
+      docker push ${each.value.ecr_repo_url}:v.1.0.0
     EOT
   }
+
+  depends_on = [
+    aws_ecr_repository.web_app_repository,
+    aws_ecr_repository.server_repository
+  ]
 }

@@ -57,18 +57,16 @@ resource "aws_ecs_task_definition" "backend" {
 # ECS Service for Frontend
 resource "aws_ecs_service" "frontend" {
   name            = "frontend-service"
-  cluster         = var.CLUSTER_ID 
+  cluster         = var.CLUSTER_ID
   task_definition = aws_ecs_task_definition.frontend.arn
   desired_count   = 2
   launch_type     = "EC2"
 
   load_balancer {
-    target_group_arn = var.FRONTEND_TARGET_GROUP_ARN 
+    target_group_arn = var.FRONTEND_TARGET_GROUP_ARN
     container_name   = "frontend-container"
     container_port   = 3000
   }
-
-  depends_on = [aws_lb_listener.http]
 
   tags = {
     Name = "frontend-service"
@@ -84,12 +82,10 @@ resource "aws_ecs_service" "backend" {
   launch_type     = "EC2"
 
   load_balancer {
-    target_group_arn = var.BACKEND_TARGET_GROUP_ARN 
+    target_group_arn = var.BACKEND_TARGET_GROUP_ARN
     container_name   = "backend-container"
     container_port   = 8080
   }
-
-  depends_on = [aws_lb_listener.http]
 
   tags = {
     Name = "backend-service"

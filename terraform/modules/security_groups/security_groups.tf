@@ -2,13 +2,13 @@
 resource "aws_security_group" "frontend_ecs" {
   name        = "frontend-ecs-sg"
   description = "Allow traffic from ALB to Frontend ECS"
-  vpc_id      = var.VPC 
+  vpc_id      = var.VPC
 
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = var.ALLOW_SSH ? ["${chomp(data.http.my_ip.body)}/32"] : []
+    cidr_blocks = var.ALLOW_SSH ? ["${chomp(data.http.my_ip.request_body)}/32"] : []
   }
 
   ingress {
@@ -40,7 +40,7 @@ resource "aws_security_group" "backend_ecs" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = var.ALLOW_SSH ? ["${chomp(data.http.my_ip.body)}/32"] : []
+    cidr_blocks = var.ALLOW_SSH ? ["${chomp(data.http.my_ip.request_body)}/32"] : []
   }
 
   ingress {
@@ -110,4 +110,8 @@ resource "aws_security_group" "rds" {
   tags = {
     Name = "rds-sg"
   }
+}
+
+data "http" "my_ip" {
+  url = "http://checkip.amazonaws.com/"
 }

@@ -3,7 +3,7 @@
 resource "aws_launch_template" "backend" {
   name          = "backend-launch-template"
   instance_type = var.EC2_INSTANCE_TYPE
-  image_id      = data.aws_ami.ecs.id
+  image_id      = var.EC2_IMAGE_ID
 
   #key only used for debugging, delete after successful implementation
   key_name = var.EC2_KEY

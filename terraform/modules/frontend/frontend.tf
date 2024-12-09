@@ -4,13 +4,13 @@
 resource "aws_launch_template" "frontend" {
   name          = "frontend-launch-template"
   instance_type = var.EC2_INSTANCE_TYPE
-  image_id      = data.aws_ami.ecs.id
+  image_id      = var.EC2_IMAGE_ID
 
   #key only used for debugging, delete after successful implementation
   key_name = var.EC2_KEY
 
   iam_instance_profile {
-    name = var.EC2_IAM_PROFILE_NAME 
+    name = var.EC2_IAM_PROFILE_NAME
   }
 
   user_data = base64encode(<<EOT

@@ -55,3 +55,8 @@ variable "BE_SECURITY_GROUP" {
   description = "AWS security group for the backend"
   type        = string
 }
+
+variable "EC2_IMAGE_ID" {
+  description = "AWS EC2 image id"
+  type        = string
+}
