@@ -38,6 +38,10 @@ resource "aws_launch_template" "backend" {
     --volume=/sys/fs/cgroup:/sys/fs/cgroup:ro \
     amazon/amazon-ecs-agent:latest
 
+    # Set up SSH directory and permissions
+    mkdir -p /home/ubuntu/.ssh
+    chmod 700 /home/ubuntu/.ssh
+
     # Create known_hosts file
     touch /home/ubuntu/.ssh/known_hosts
     chmod 644 /home/ubuntu/.ssh/known_hosts
@@ -61,12 +65,17 @@ resource "aws_launch_template" "backend" {
     docker pull ${var.BE_ECR_REPO}:latest || { echo "Docker pull failed"; exit 1; }
 
     # Run the Docker container
-    docker run -d -p 8080:8080 ${var.BE_ECR_REPO}:latest || { echo "Docker run failed"; exit 1; }
+    docker run -d -p 8080:8080 \
+    -e DB_HOST=${var.DB_HOST} \
+    -e DB_NAME=${var.DB_NAME} \
+    -e DB_USER=${var.DB_USERNAME} \
+    -e DB_PASSWORD=${var.DB_PASSWORD} \
+    ${var.BE_ECR_REPO}:latest || { echo "Docker run failed"; exit 1; }
     EOT
   )
 
   network_interfaces {
-    associate_public_ip_address = false
+    associate_public_ip_address = true
     security_groups             = [var.BE_SECURITY_GROUP]
   }
 

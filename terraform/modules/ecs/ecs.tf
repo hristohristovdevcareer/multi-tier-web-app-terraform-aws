@@ -16,14 +16,31 @@ resource "aws_ecs_task_definition" "frontend" {
   requires_compatibilities = ["EC2"]
   cpu                      = "256"
   memory                   = "512"
+  task_role_arn            = var.ECS_TASK_ROLE_ARN
+  execution_role_arn       = var.ECS_TASK_EXECUTION_ROLE_ARN
 
   container_definitions = jsonencode([{
     name  = "frontend-container"
     image = "${var.FRONTEND_ECR_REPO}:v.1.0.0"
+    environment = [
+      {
+        name  = "SERVER_URL"
+        value = var.SERVER_URL
+      },
+    ]
     portMappings = [{
       containerPort = 3000
       hostPort      = 3000
     }]
+    essential = true
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = var.FRONTEND_ECS_LOG_GROUP
+        "awslogs-region"        = var.REGION
+        "awslogs-stream-prefix" = "frontend"
+      }
+    }
   }])
 
   tags = {
@@ -38,14 +55,43 @@ resource "aws_ecs_task_definition" "backend" {
   requires_compatibilities = ["EC2"]
   cpu                      = "256"
   memory                   = "512"
+  task_role_arn            = var.ECS_TASK_ROLE_ARN
+  execution_role_arn       = var.ECS_TASK_EXECUTION_ROLE_ARN
 
   container_definitions = jsonencode([{
     name  = "backend-container"
     image = "${var.BACKEND_ECR_REPO}:v.1.0.0"
+    environment = [
+      {
+        name  = "DB_HOST"
+        value = var.DB_HOST
+      },
+      {
+        name  = "DB_NAME"
+        value = var.DB_NAME
+      },
+      {
+        name  = "DB_USER"
+        value = var.DB_USER
+      },
+      {
+        name  = "DB_PASSWORD"
+        value = var.DB_PASSWORD
+      }
+    ]
     portMappings = [{
       containerPort = 8080
       hostPort      = 8080
     }]
+    essential = true
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = var.BACKEND_ECS_LOG_GROUP
+        "awslogs-region"        = var.REGION
+        "awslogs-stream-prefix" = "backend"
+      }
+    }
   }])
 
   tags = {

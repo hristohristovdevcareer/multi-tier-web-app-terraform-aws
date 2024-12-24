@@ -39,6 +39,10 @@ resource "aws_launch_template" "frontend" {
     --volume=/sys/fs/cgroup:/sys/fs/cgroup:ro \
     amazon/amazon-ecs-agent:latest
 
+    # Set up SSH directory and permissions
+    mkdir -p /home/ubuntu/.ssh
+    chmod 700 /home/ubuntu/.ssh
+
     # Create known_hosts file
     touch /home/ubuntu/.ssh/known_hosts
     chmod 644 /home/ubuntu/.ssh/known_hosts
@@ -62,7 +66,7 @@ resource "aws_launch_template" "frontend" {
     docker pull ${var.FE_ECR_REPO}:latest || { echo "Docker pull failed"; exit 1; }
 
     # Run the Docker container
-    docker run -d -p 3000:3000 ${var.FE_ECR_REPO}:latest || { echo "Docker run failed"; exit 1; }
+    docker run -d -p 3000:3000 -e ${var.FE_ECR_REPO}:latest || { echo "Docker run failed"; exit 1; }
     EOT
   )
 

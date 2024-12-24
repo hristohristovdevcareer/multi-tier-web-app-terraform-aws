@@ -60,3 +60,25 @@ variable "EC2_IMAGE_ID" {
   description = "AWS EC2 image id"
   type        = string
 }
+
+variable "DB_USERNAME" {
+  description = "Database master username"
+  type        = string
+  sensitive   = true
+}
+
+variable "DB_PASSWORD" {
+  description = "Database master password"
+  type        = string
+  sensitive   = true
+}
+
+variable "DB_HOST" {
+  description = "Database host"
+  type        = string
+}
+
+variable "DB_NAME" {
+  description = "Database name"
+  type        = string
+}

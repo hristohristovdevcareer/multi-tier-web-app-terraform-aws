@@ -18,11 +18,6 @@ variable "CIDR_VPC" {
   type        = string
 }
 
-variable "CIDR_SUBNET" {
-  description = "Subnet CIDR IP"
-  type        = string
-}
-
 variable "CIDR_GATEWAY" {
   description = "Gateway CIDR IP"
   type        = string
@@ -110,26 +105,6 @@ variable "SERVICES" {
   }))
 }
 
-variable "CIDR_SUBNET_PUBLIC" {
-  description = "Public Subnet CIDR IP"
-  type        = string
-}
-
-variable "CIDR_SUBNET_PRIVATE" {
-  description = "Private Subnet CIDR IP"
-  type        = string
-}
-
-variable "NAT_INSTANCE_AMI" {
-  description = "AMI for the NAT instance"
-  type        = string
-}
-
-variable "NAT_INSTANCE_TYPE" {
-  description = "Instance type for the NAT instance"
-  type        = string
-}
-
 variable "TF_PROFILE" {
   description = "AWS profile"
   type        = string
@@ -140,4 +115,17 @@ variable "VAULT_ADDR" {
   type        = string
 }
 
+variable "ECS_FRONTEND_LOG_GROUP" {
+  description = "ECS Log Group"
+  type        = string
+}
 
+variable "ECS_BACKEND_LOG_GROUP" {
+  description = "ECS Log Group"
+  type        = string
+}
+
+variable "IMAGE_TAG" {
+  description = "Image tag"
+  type        = string
+}

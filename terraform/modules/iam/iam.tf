@@ -44,8 +44,8 @@ resource "aws_iam_role_policy" "ec2_ecr_policy" {
           "ecr:BatchGetImage"
         ]
         Resource = [
-          "arn:aws:ecr:${var.REGION}:${data.aws_caller_identity.current.account_id}:repository/${var.PROJECT_NAME}-web-app-docker",
-          "arn:aws:ecr:${var.REGION}:${data.aws_caller_identity.current.account_id}:repository/${var.PROJECT_NAME}-server-docker"
+          "arn:aws:ecr:${var.REGION}:${data.aws_caller_identity.current.account_id}:repository/${var.PROJECT_NAME}-web-app-docker/*",
+          "arn:aws:ecr:${var.REGION}:${data.aws_caller_identity.current.account_id}:repository/${var.PROJECT_NAME}-server-docker/*"
         ]
       }
     ]

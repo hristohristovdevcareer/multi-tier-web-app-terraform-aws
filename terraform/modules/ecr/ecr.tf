@@ -29,23 +29,47 @@ output "server_ecr_repository_url" {
 
 # Docker build and push for each service
 resource "null_resource" "docker_build_and_push" {
-  for_each = var.SERVICES
+  for_each = {
+    web_app = {
+      docker_compose = var.SERVICES["web_app"].docker_compose
+      dockerfile     = var.SERVICES["web_app"].dockerfile
+      project_name   = var.SERVICES["web_app"].project_name
+      repo_url       = aws_ecr_repository.web_app_repository.repository_url
+    }
+    server = {
+      docker_compose = var.SERVICES["server"].docker_compose
+      dockerfile     = var.SERVICES["server"].dockerfile
+      project_name   = var.SERVICES["server"].project_name
+      repo_url       = aws_ecr_repository.server_repository.repository_url
+    }
+  }
 
   triggers = {
     docker_compose = each.value.docker_compose
     dockerfile     = each.value.dockerfile
-    version_tag    = "v.1.0.0"
+    version_tag    = var.IMAGE_TAG
+    repo_url       = each.value.repo_url
   }
 
   provisioner "local-exec" {
+    environment = {
+      PROJECT_NAME = each.value.project_name
+      IMAGE_TAG    = var.IMAGE_TAG
+      DB_HOST      = var.DB_HOST
+      DB_NAME      = var.DB_NAME
+      DB_USER      = var.DB_USER
+      DB_PASSWORD  = var.DB_PASSWORD
+    }
+
     command = <<EOT
-      docker-compose -f ${each.value.docker_compose} build
+      #Need variables here
+      docker-compose -f ${each.value.docker_compose} build 
 
       aws ecr get-login-password --region ${var.REGION} | \
-      docker login --username AWS --password-stdin ${each.value.ecr_repo_url}
+      docker login --username AWS --password-stdin ${each.value.repo_url}
 
-      docker tag ${each.value.project_name}:v.1.0.0 ${each.value.ecr_repo_url}:v.1.0.0
-      docker push ${each.value.ecr_repo_url}:v.1.0.0
+      docker tag ${each.value.project_name}:${var.IMAGE_TAG} ${each.value.repo_url}:${var.IMAGE_TAG}
+      docker push ${each.value.repo_url}:${var.IMAGE_TAG}
     EOT
   }
 
