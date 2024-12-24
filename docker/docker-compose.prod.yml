@@ -1,21 +1,41 @@
 version: "3.9"
 
 services:
-  web-app:
+  frontend:
+    build:
+      context: ..
+      dockerfile: ./docker/web-app.Dockerfile
+      args:
+        PROJECT_NAME: ${PROJECT_NAME}
+        IMAGE_TAG: ${IMAGE_TAG}
     image: ${PROJECT_NAME}-web-app:${IMAGE_TAG} # Specify the image with a variable tag
     ports:
-      - "8000:8000" # Expose the application port
+      - "3000:3000" # Expose the application port
     environment:
       - SERVER_URL=${SERVER_URL}
+      - NODE_ENV=production
     networks:
       - app-network
 
-  server:
+  backend:
+    build:
+      context: ..
+      dockerfile: ./docker/server.Dockerfile
+      args:
+        PROJECT_NAME: ${PROJECT_NAME}
+        DB_HOST: ${DB_HOST}
+        DB_NAME: ${DB_NAME}
+        DB_USER: ${DB_USER}
+        DB_PASSWORD: ${DB_PASSWORD}
     image: ${PROJECT_NAME}-server:${IMAGE_TAG} # Specify the image with a variable tag
     ports:
       - "8080:8080" # Expose the application port
     environment:
       - NODE_ENV=production
+      - DB_HOST=${DB_HOST}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
     networks:
       - app-network
 
