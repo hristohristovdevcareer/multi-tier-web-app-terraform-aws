@@ -33,13 +33,13 @@ resource "null_resource" "docker_build_and_push" {
     web_app = {
       docker_compose = var.SERVICES["web_app"].docker_compose
       dockerfile     = var.SERVICES["web_app"].dockerfile
-      project_name   = var.SERVICES["web_app"].project_name
+      project_name   = "${var.PROJECT_NAME}-${var.SERVICES["web_app"].project_name}"
       repo_url       = aws_ecr_repository.web_app_repository.repository_url
     }
     server = {
       docker_compose = var.SERVICES["server"].docker_compose
       dockerfile     = var.SERVICES["server"].dockerfile
-      project_name   = var.SERVICES["server"].project_name
+      project_name   = "${var.PROJECT_NAME}-${var.SERVICES["server"].project_name}"
       repo_url       = aws_ecr_repository.server_repository.repository_url
     }
   }
@@ -53,7 +53,7 @@ resource "null_resource" "docker_build_and_push" {
 
   provisioner "local-exec" {
     environment = {
-      PROJECT_NAME = each.value.project_name
+      PROJECT_NAME = var.PROJECT_NAME
       IMAGE_TAG    = var.IMAGE_TAG
       DB_HOST      = var.DB_HOST
       DB_NAME      = var.DB_NAME

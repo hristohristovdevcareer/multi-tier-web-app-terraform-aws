@@ -1,25 +1,8 @@
-# Add the required provider for http data source
-terraform {
-  required_providers {
-    http = {
-      source  = "hashicorp/http"
-      version = "~> 3.0"
-    }
-  }
-}
-
-# Data source for IP address should be defined first
-data "http" "my_ip" {
-  url = "http://checkip.amazonaws.com/"
-}
-
 # Security Group for the ALB (should be created first)
 resource "aws_security_group" "alb" {
   name        = "alb-sg"
   description = "Allow HTTP and HTTPS traffic to ALB"
   vpc_id      = var.VPC
-
-  depends_on = [data.http.my_ip]
 }
 
 # Security Group for the Frontend ECS
@@ -30,7 +13,6 @@ resource "aws_security_group" "frontend_ecs" {
 
   depends_on = [
     aws_security_group.alb,
-    data.http.my_ip
   ]
 }
 
@@ -42,7 +24,6 @@ resource "aws_security_group" "backend_ecs" {
 
   depends_on = [
     aws_security_group.frontend_ecs,
-    data.http.my_ip
   ]
 }
 
@@ -82,7 +63,7 @@ resource "aws_security_group_rule" "frontend_ssh" {
   from_port         = 22
   to_port           = 22
   protocol          = "tcp"
-  cidr_blocks       = ["${chomp(data.http.my_ip.response_body)}/32"]
+  cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = aws_security_group.frontend_ecs.id
 }
 
@@ -93,7 +74,7 @@ resource "aws_security_group_rule" "backend_ssh" {
   from_port         = 22
   to_port           = 22
   protocol          = "tcp"
-  cidr_blocks       = ["${chomp(data.http.my_ip.response_body)}/32"]
+  cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = aws_security_group.backend_ecs.id
 }
 
@@ -143,6 +124,25 @@ resource "aws_security_group_rule" "backend_egress" {
   from_port         = 0
   to_port           = 0
   protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.backend_ecs.id
+}
+
+# Allow ECS agent communication
+resource "aws_security_group_rule" "ecs_agent" {
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.frontend_ecs.id
+}
+
+resource "aws_security_group_rule" "backend_ecs_agent" {
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = aws_security_group.backend_ecs.id
 }

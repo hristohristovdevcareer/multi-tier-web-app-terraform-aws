@@ -101,7 +101,6 @@ variable "SERVICES" {
     docker_compose = string
     dockerfile     = string
     project_name   = string
-    ecr_repo_url   = string
   }))
 }
 
@@ -127,5 +126,10 @@ variable "ECS_BACKEND_LOG_GROUP" {
 
 variable "IMAGE_TAG" {
   description = "Image tag"
+  type        = string
+}
+
+variable "ECR_IMAGE_TAG" {
+  description = "ECR Image tag"
   type        = string
 }

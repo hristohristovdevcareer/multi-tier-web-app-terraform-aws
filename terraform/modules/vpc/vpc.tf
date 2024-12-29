@@ -13,7 +13,7 @@ resource "aws_internet_gateway" "igw" {
 resource "aws_subnet" "public" {
   for_each          = toset(var.AVAILABILITY_ZONES)
   vpc_id            = aws_vpc.main.id
-  cidr_block        = cidrsubnet(var.CIDR_VPC, 4, index(var.AVAILABILITY_ZONES, each.key))
+  cidr_block        = cidrsubnet(var.CIDR_VPC, 3, index(var.AVAILABILITY_ZONES, each.key))
   availability_zone = each.key
 
   # Enable auto-assign public IP
@@ -28,7 +28,7 @@ resource "aws_subnet" "public" {
 resource "aws_subnet" "private" {
   for_each          = toset(var.AVAILABILITY_ZONES)
   vpc_id            = aws_vpc.main.id
-  cidr_block        = cidrsubnet(var.CIDR_VPC, 4, index(var.AVAILABILITY_ZONES, each.key) + length(var.AVAILABILITY_ZONES))
+  cidr_block        = cidrsubnet(var.CIDR_VPC, 3, index(var.AVAILABILITY_ZONES, each.key) + length(var.AVAILABILITY_ZONES))
   availability_zone = each.key
 
   tags = {
@@ -36,24 +36,21 @@ resource "aws_subnet" "private" {
   }
 }
 
+# Single NAT Gateway in the first availability zone
 resource "aws_nat_gateway" "nat" {
-  for_each = aws_subnet.private
-
-  allocation_id = aws_eip.nat[each.key].id
-  subnet_id     = each.value.id
+  allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.public[var.AVAILABILITY_ZONES[0]].id
 
   tags = {
-    Name = "nat-instance-${each.key}"
+    Name = "nat-gateway"
   }
 }
 
+# Single Elastic IP for the NAT Gateway
 resource "aws_eip" "nat" {
-  for_each = toset(var.AVAILABILITY_ZONES)
-
   domain = "vpc"
-
   tags = {
-    Name = "nat-eip-${each.key}"
+    Name = "nat-eip"
   }
 }
 
@@ -70,12 +67,12 @@ resource "aws_route_table" "public" {
   }
 }
 
-# Route Table for the private subnet
+# Route Table for the private subnets, using the single NAT Gateway
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
   route {
     cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.nat[var.AVAILABILITY_ZONES[0]].id
+    nat_gateway_id = aws_nat_gateway.nat.id
   }
 
   tags = {

@@ -21,10 +21,27 @@ terraform {
   }
 }
 
+module "vault" {
+  source = "./modules/vault"
+
+  DB_USERNAME        = data.vault_generic_secret.db_credentials.data["username"]
+  DB_PASSWORD        = data.vault_generic_secret.db_credentials.data["password"]
+  GITLAB_PRIVATE_KEY = data.vault_generic_secret.gitlab_private_key.data["gitlab_private_key"]
+  GITLAB_PUBLIC_KEY  = data.vault_generic_secret.gitlab_public_key.data["gitlab_public_key"]
+  EC2_SSH_PUBLIC_KEY = data.vault_generic_secret.ec2_ssh_public_key.data["ec2_ssh_public_key"]
+}
+
 # Key Pair for the EC2 instance
 resource "aws_key_pair" "ec2" {
   key_name   = "ec-2-key"
   public_key = data.vault_generic_secret.ec2_ssh_public_key.data["ec2_ssh_public_key"]
+}
+
+module "tf_state" {
+  source = "./modules/tf-state"
+
+  TF_STATE_BUCKET_NAME = local.BUCKET_NAME
+  TABLE_NAME           = local.TABLE_NAME
 }
 
 module "vpc" {
@@ -39,6 +56,7 @@ module "security_groups" {
 
   VPC       = module.vpc.vpc_id
   ALLOW_SSH = true
+
 }
 
 module "rds" {
@@ -60,9 +78,19 @@ module "ecr" {
   DB_NAME      = module.rds.db_instance_name
   DB_USER      = module.rds.db_instance_username
   DB_PASSWORD  = module.rds.db_instance_password
-  IMAGE_TAG    = var.IMAGE_TAG
+  IMAGE_TAG    = var.ECR_IMAGE_TAG
+}
 
-  depends_on = [module.rds]
+module "iam" {
+  source = "./modules/iam"
+
+  REGION       = var.REGION
+  PROJECT_NAME = var.PROJECT_NAME
+
+}
+
+module "ecs" {
+  source = "./modules/ecs"
 }
 
 module "frontend" {
@@ -80,8 +108,6 @@ module "frontend" {
   FE_ECR_REPO          = module.ecr.web_app_repository_url
   FE_SECURITY_GROUP    = module.security_groups.frontend_ecs_security_group
   EC2_IMAGE_ID         = var.EC2_INSTANCE_AMI
-
-  depends_on = [module.ecr]
 }
 
 module "backend" {
@@ -104,18 +130,21 @@ module "backend" {
   DB_HOST              = module.rds.db_instance_endpoint
   DB_NAME              = module.rds.db_instance_name
 
-  depends_on = [module.rds, module.ecr]
 }
 
-module "iam" {
-  source = "./modules/iam"
+module "alb" {
+  source = "./modules/alb"
 
-  REGION       = var.REGION
-  PROJECT_NAME = var.PROJECT_NAME
+  FRONTEND_LAUNCH_TEMPLATE_ID = module.frontend.frontend_launch_template_id
+  BACKEND_LAUNCH_TEMPLATE_ID  = module.backend.backend_launch_template_id
+  PUBLIC_SUBNET_IDS           = module.vpc.public_subnet_ids
+  PRIVATE_SUBNET_IDS          = module.vpc.private_subnet_ids
+  VPC_ID                      = module.vpc.vpc_id
+  ALB_SECURITY_GROUP_ID       = module.security_groups.alb_security_group
 }
 
-module "ecs" {
-  source = "./modules/ecs"
+module "ecs-task-services" {
+  source = "./modules/ecs-task-services"
 
   FRONTEND_ECR_REPO           = module.ecr.web_app_repository_url
   BACKEND_ECR_REPO            = module.ecr.server_repository_url
@@ -132,32 +161,5 @@ module "ecs" {
   DB_USER                     = module.rds.db_instance_username
   DB_PASSWORD                 = module.rds.db_instance_password
   SERVER_URL                  = "http://${module.ecr.server_repository_url}:8080"
-}
 
-module "alb" {
-  source = "./modules/alb"
-
-  FRONTEND_LAUNCH_TEMPLATE_ID = module.frontend.frontend_launch_template_id
-  BACKEND_LAUNCH_TEMPLATE_ID  = module.backend.backend_launch_template_id
-  PUBLIC_SUBNET_IDS           = module.vpc.public_subnet_ids
-  PRIVATE_SUBNET_IDS          = module.vpc.private_subnet_ids
-  VPC_ID                      = module.vpc.vpc_id
-  ALB_SECURITY_GROUP_ID       = module.security_groups.alb_security_group
-}
-
-module "tf_state" {
-  source = "./modules/tf-state"
-
-  TF_STATE_BUCKET_NAME = local.BUCKET_NAME
-  TABLE_NAME           = local.TABLE_NAME
-}
-
-module "vault" {
-  source = "./modules/vault"
-
-  DB_USERNAME        = data.vault_generic_secret.db_credentials.data["username"]
-  DB_PASSWORD        = data.vault_generic_secret.db_credentials.data["password"]
-  GITLAB_PRIVATE_KEY = data.vault_generic_secret.gitlab_private_key.data["gitlab_private_key"]
-  GITLAB_PUBLIC_KEY  = data.vault_generic_secret.gitlab_public_key.data["gitlab_public_key"]
-  EC2_SSH_PUBLIC_KEY = data.vault_generic_secret.ec2_ssh_public_key.data["ec2_ssh_public_key"]
 }

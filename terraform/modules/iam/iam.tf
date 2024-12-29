@@ -32,21 +32,22 @@ resource "aws_iam_role_policy" "ec2_ecr_policy" {
       {
         Effect = "Allow"
         Action = [
-          "ecr:GetAuthorizationToken"
-        ]
-        Resource = "*" # This one needs to be * as it's a global action
-      },
-      {
-        Effect = "Allow"
-        Action = [
+          "ecs:CreateCluster",
+          "ecs:DeregisterContainerInstance",
+          "ecs:DiscoverPollEndpoint",
+          "ecs:Poll",
+          "ecs:RegisterContainerInstance",
+          "ecs:StartTelemetrySession",
+          "ecs:UpdateContainerInstancesState",
+          "ecs:Submit*",
+          "ecr:GetAuthorizationToken",
           "ecr:BatchCheckLayerAvailability",
           "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage"
+          "ecr:BatchGetImage",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
         ]
-        Resource = [
-          "arn:aws:ecr:${var.REGION}:${data.aws_caller_identity.current.account_id}:repository/${var.PROJECT_NAME}-web-app-docker/*",
-          "arn:aws:ecr:${var.REGION}:${data.aws_caller_identity.current.account_id}:repository/${var.PROJECT_NAME}-server-docker/*"
-        ]
+        Resource = "*"
       }
     ]
   })
