@@ -53,7 +53,7 @@ ExecStart=/usr/bin/docker run --name ecs-agent \
   --volume=/var/run/docker.sock:/var/run/docker.sock \
   --volume=/var/log/ecs:/log \
   --volume=/var/lib/ecs/data:/data \
-  amazon/amazon-ecs-agent:latest
+  amazon/amazon-ecs-agent:latest \
   --cluster ${ECS_CLUSTER_NAME}
 ExecStop=/usr/bin/docker stop ecs-agent
 ExecStopPost=/usr/bin/docker rm ecs-agent
