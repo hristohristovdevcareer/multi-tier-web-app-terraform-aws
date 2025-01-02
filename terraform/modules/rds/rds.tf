@@ -10,8 +10,8 @@ resource "aws_db_subnet_group" "main" {
 
 # RDS Parameter Group
 resource "aws_db_parameter_group" "main" {
-  family = "postgres12"
-  name   = "custom-postgres12"
+  family = "postgres14"
+  name   = "custom-postgres14"
 
   parameter {
     name  = "log_connections"
@@ -23,7 +23,7 @@ resource "aws_db_parameter_group" "main" {
 resource "aws_db_instance" "main" {
   identifier        = "main-db"
   engine            = "postgres"
-  engine_version    = "12"
+  engine_version    = "14"
   instance_class    = "db.t3.micro" # Free tier eligible
   allocated_storage = 10
   storage_type      = "gp2" # Free tier eligible

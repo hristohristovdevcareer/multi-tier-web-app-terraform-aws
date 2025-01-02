@@ -14,3 +14,6 @@ output "frontend_ecs_security_group" {
   value = aws_security_group.frontend_ecs.id
 }
 
+output "nat_sg" {
+  value = aws_security_group.nat.id
+}

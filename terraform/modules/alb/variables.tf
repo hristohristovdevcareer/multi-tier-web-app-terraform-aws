@@ -1,13 +1,3 @@
-variable "FRONTEND_LAUNCH_TEMPLATE_ID" {
-  description = "Launch Template ID"
-  type        = string
-}
-
-variable "BACKEND_LAUNCH_TEMPLATE_ID" {
-  description = "Launch Template ID"
-  type        = string
-}
-
 variable "PUBLIC_SUBNET_IDS" {
   description = "Public Subnet IDs"
   type        = list(string)

@@ -49,6 +49,9 @@ module "vpc" {
 
   CIDR_VPC           = var.CIDR_VPC
   AVAILABILITY_ZONES = ["eu-west-2a", "eu-west-2b"]
+  EC2_INSTANCE_AMI   = var.EC2_INSTANCE_AMI
+  EC2_INSTANCE_TYPE  = var.EC2_INSTANCE_TYPE
+  NAT_SG             = module.security_groups.nat_sg
 }
 
 module "security_groups" {
@@ -56,8 +59,19 @@ module "security_groups" {
 
   VPC       = module.vpc.vpc_id
   ALLOW_SSH = true
-
+  CIDR_VPC  = var.CIDR_VPC
 }
+
+
+module "alb" {
+  source = "./modules/alb"
+
+  VPC_ID                = module.vpc.vpc_id
+  PUBLIC_SUBNET_IDS     = module.vpc.public_subnet_ids
+  PRIVATE_SUBNET_IDS    = module.vpc.private_subnet_ids
+  ALB_SECURITY_GROUP_ID = module.security_groups.alb_security_group
+}
+
 
 module "rds" {
   source = "./modules/rds"
@@ -91,75 +105,31 @@ module "iam" {
 
 module "ecs" {
   source = "./modules/ecs"
+
+  FRONTEND_ECR_REPO                = module.ecr.web_app_repository_url
+  BACKEND_ECR_REPO                 = module.ecr.server_repository_url
+  FRONTEND_TARGET_GROUP_ARN        = module.alb.frontend_target_group_arn
+  REGION                           = var.REGION
+  FRONTEND_ECS_LOG_GROUP           = var.ECS_FRONTEND_LOG_GROUP
+  BACKEND_ECS_LOG_GROUP            = var.ECS_BACKEND_LOG_GROUP
+  ECS_TASK_ROLE_ARN                = module.iam.ecs_task_role_arn
+  ECS_TASK_EXECUTION_ROLE_ARN      = module.iam.ecs_task_execution_role_arn
+  DB_HOST                          = module.rds.db_instance_endpoint
+  DB_NAME                          = module.rds.db_instance_name
+  DB_USER                          = module.rds.db_instance_username
+  DB_PASSWORD                      = module.rds.db_instance_password
+  SERVER_URL                       = "localhost"
+  PROJECT_NAME                     = var.PROJECT_NAME
+  IMAGE_TAG                        = var.IMAGE_TAG
+  PUBLIC_SUBNET_IDS                = module.vpc.public_subnet_ids
+  PRIVATE_SUBNET_IDS               = module.vpc.private_subnet_ids
+  EC2_INSTANCE_TYPE                = var.EC2_INSTANCE_TYPE
+  EC2_INSTANCE_AMI                 = var.EC2_INSTANCE_AMI
+  IAM_ROLE_DEPENDENCY_FRONTEND_ECS = [module.iam.ecs_task_execution_role, module.iam.ecs_task_role]
+  IAM_ROLE_DEPENDENCY_BACKEND_ECS  = [module.iam.ecs_task_execution_role, module.iam.ecs_task_role]
+  FRONTEND_ECS_SECURITY_GROUP_ID   = module.security_groups.frontend_ecs_security_group
+  BACKEND_ECS_SECURITY_GROUP_ID    = module.security_groups.backend_ecs_security_group
+  EC2_KEY_PAIR_NAME                = aws_key_pair.ec2.key_name
+  EC2_INSTANCE_PROFILE_NAME        = module.iam.ec2_instance_profile_name
 }
-
-module "frontend" {
-  source = "./modules/frontend"
-
-  EC2_INSTANCE_TYPE    = var.EC2_INSTANCE_TYPE
-  EC2_INSTANCE_NAME    = var.EC2_INSTANCE_NAME
-  EC2_KEY              = aws_key_pair.ec2.key_name
-  EC2_INSTANCE_AMI     = var.EC2_INSTANCE_AMI
-  EC2_IAM_PROFILE_NAME = module.iam.ec2_ecr_instance_profile_name
-  ECS_CLUSTER          = module.ecs.ecs_cluster_id
-  GITLAB_PRIVATE_KEY   = data.vault_generic_secret.gitlab_private_key.data["gitlab_private_key"]
-  GITLAB_PUBLIC_KEY    = data.vault_generic_secret.gitlab_public_key.data["gitlab_public_key"]
-  REGION               = var.REGION
-  FE_ECR_REPO          = module.ecr.web_app_repository_url
-  FE_SECURITY_GROUP    = module.security_groups.frontend_ecs_security_group
-  EC2_IMAGE_ID         = var.EC2_INSTANCE_AMI
-}
-
-module "backend" {
-  source = "./modules/backend"
-
-  EC2_INSTANCE_TYPE    = var.EC2_INSTANCE_TYPE
-  EC2_INSTANCE_NAME    = var.EC2_INSTANCE_NAME
-  EC2_KEY              = aws_key_pair.ec2.key_name
-  EC2_INSTANCE_AMI     = var.EC2_INSTANCE_AMI
-  EC2_IAM_PROFILE_NAME = module.iam.ec2_ecr_instance_profile_name
-  ECS_CLUSTER          = module.ecs.ecs_cluster_id
-  GITLAB_PRIVATE_KEY   = data.vault_generic_secret.gitlab_private_key.data["gitlab_private_key"]
-  GITLAB_PUBLIC_KEY    = data.vault_generic_secret.gitlab_public_key.data["gitlab_public_key"]
-  REGION               = var.REGION
-  BE_ECR_REPO          = module.ecr.server_repository_url
-  BE_SECURITY_GROUP    = module.security_groups.backend_ecs_security_group
-  EC2_IMAGE_ID         = var.EC2_INSTANCE_AMI
-  DB_USERNAME          = data.vault_generic_secret.db_credentials.data["username"]
-  DB_PASSWORD          = data.vault_generic_secret.db_credentials.data["password"]
-  DB_HOST              = module.rds.db_instance_endpoint
-  DB_NAME              = module.rds.db_instance_name
-
-}
-
-module "alb" {
-  source = "./modules/alb"
-
-  FRONTEND_LAUNCH_TEMPLATE_ID = module.frontend.frontend_launch_template_id
-  BACKEND_LAUNCH_TEMPLATE_ID  = module.backend.backend_launch_template_id
-  PUBLIC_SUBNET_IDS           = module.vpc.public_subnet_ids
-  PRIVATE_SUBNET_IDS          = module.vpc.private_subnet_ids
-  VPC_ID                      = module.vpc.vpc_id
-  ALB_SECURITY_GROUP_ID       = module.security_groups.alb_security_group
-}
-
-module "ecs-task-services" {
-  source = "./modules/ecs-task-services"
-
-  FRONTEND_ECR_REPO           = module.ecr.web_app_repository_url
-  BACKEND_ECR_REPO            = module.ecr.server_repository_url
-  CLUSTER_ID                  = module.ecs.ecs_cluster_id
-  FRONTEND_TARGET_GROUP_ARN   = module.alb.frontend_target_group_arn
-  BACKEND_TARGET_GROUP_ARN    = module.alb.backend_target_group_arn
-  REGION                      = var.REGION
-  FRONTEND_ECS_LOG_GROUP      = var.ECS_FRONTEND_LOG_GROUP
-  BACKEND_ECS_LOG_GROUP       = var.ECS_BACKEND_LOG_GROUP
-  ECS_TASK_ROLE_ARN           = module.iam.ecs_task_role_arn
-  ECS_TASK_EXECUTION_ROLE_ARN = module.iam.ecs_task_execution_role_arn
-  DB_HOST                     = module.rds.db_instance_endpoint
-  DB_NAME                     = module.rds.db_instance_name
-  DB_USER                     = module.rds.db_instance_username
-  DB_PASSWORD                 = module.rds.db_instance_password
-  SERVER_URL                  = "http://${module.ecr.server_repository_url}:8080"
-
-}
+  

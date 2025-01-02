@@ -5,35 +5,14 @@ resource "aws_security_group" "alb" {
   vpc_id      = var.VPC
 }
 
-# Security Group for the Frontend ECS
-resource "aws_security_group" "frontend_ecs" {
-  name        = "frontend-ecs-sg"
-  description = "Allow traffic from ALB to Frontend ECS"
-  vpc_id      = var.VPC
-
-  depends_on = [
-    aws_security_group.alb,
-  ]
-}
-
-# Security Group for the Backend ECS
-resource "aws_security_group" "backend_ecs" {
-  name        = "backend-ecs-sg"
-  description = "Allow traffic from Frontend ECS to Backend ECS"
-  vpc_id      = var.VPC
-
-  depends_on = [
-    aws_security_group.frontend_ecs,
-  ]
-}
-
-# Security Group for the RDS
-resource "aws_security_group" "rds" {
-  name        = "rds-sg"
-  description = "Allow traffic from Backend ECS to RDS"
-  vpc_id      = var.VPC
-
-  depends_on = [aws_security_group.backend_ecs]
+# ALB egresss to the internet
+resource "aws_security_group_rule" "alb_egress" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.alb.id
 }
 
 # Now add the rules as separate resources to avoid circular dependencies
@@ -44,6 +23,17 @@ resource "aws_security_group_rule" "alb_ingress" {
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = aws_security_group.alb.id
+}
+
+# Security Group for the Frontend ECS
+resource "aws_security_group" "frontend_ecs" {
+  name        = "frontend-ecs-sg"
+  description = "Allow traffic from ALB to Frontend ECS"
+  vpc_id      = var.VPC
+
+  depends_on = [
+    aws_security_group.alb,
+  ]
 }
 
 # Frontend ECS from ALB
@@ -67,6 +57,27 @@ resource "aws_security_group_rule" "frontend_ssh" {
   security_group_id = aws_security_group.frontend_ecs.id
 }
 
+# Frontend ECS egress to the internet
+resource "aws_security_group_rule" "frontend_egress" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.frontend_ecs.id
+}
+
+# Security Group for the Backend ECS
+resource "aws_security_group" "backend_ecs" {
+  name        = "backend-ecs-sg"
+  description = "Allow traffic from Frontend ECS to Backend ECS"
+  vpc_id      = var.VPC
+
+  depends_on = [
+    aws_security_group.frontend_ecs,
+  ]
+}
+
 # Backend ECS SSH
 resource "aws_security_group_rule" "backend_ssh" {
   count             = var.ALLOW_SSH ? 1 : 0
@@ -88,6 +99,15 @@ resource "aws_security_group_rule" "backend_from_frontend" {
   security_group_id        = aws_security_group.backend_ecs.id
 }
 
+# Security Group for the RDS
+resource "aws_security_group" "rds" {
+  name        = "rds-sg"
+  description = "Allow traffic from Backend ECS to RDS"
+  vpc_id      = var.VPC
+
+  depends_on = [aws_security_group.backend_ecs]
+}
+
 # RDS from Backend ECS 
 resource "aws_security_group_rule" "rds_from_backend" {
   type                     = "ingress"
@@ -96,26 +116,6 @@ resource "aws_security_group_rule" "rds_from_backend" {
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.backend_ecs.id
   security_group_id        = aws_security_group.rds.id
-}
-
-# ALB egresss to the internet
-resource "aws_security_group_rule" "alb_egress" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.alb.id
-}
-
-# Frontend ECS egress to the internet
-resource "aws_security_group_rule" "frontend_egress" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.frontend_ecs.id
 }
 
 # Backend ECS egress to the internet
@@ -145,4 +145,29 @@ resource "aws_security_group_rule" "backend_ecs_agent" {
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = aws_security_group.backend_ecs.id
+}
+
+# Security group for NAT Instance
+resource "aws_security_group" "nat" {
+  name        = "nat-sg"
+  description = "Security group for NAT instance"
+  vpc_id      = var.VPC
+
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [var.CIDR_VPC]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "nat-security-group"
+  }
 }
