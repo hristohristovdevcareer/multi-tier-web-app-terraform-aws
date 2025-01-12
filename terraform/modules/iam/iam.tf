@@ -1,4 +1,3 @@
-
 # IAM Instance Profile for EC2 Role
 resource "aws_iam_instance_profile" "ec2_instance_profile" {
   name = "ec2-ecr-access"
@@ -66,7 +65,7 @@ resource "aws_iam_role_policy" "ec2_ecr_policy" {
 
           # CloudWatch permissions
           "logs:CreateLogStream",
-          "logs:PutLogEvents"
+          "logs:PutLogEvents",
         ],
         Resource = "*"
       }
@@ -150,7 +149,13 @@ resource "aws_iam_role_policy" "ecs_task_role_policy" {
           "elasticloadbalancing:DeregisterInstancesFromLoadBalancer",
           "elasticloadbalancing:RegisterInstancesWithLoadBalancer",
           "elasticloadbalancing:DeregisterTargets",
-          "elasticloadbalancing:RegisterTargets"
+          "elasticloadbalancing:RegisterTargets",
+
+          # Additional CloudWatch permissions
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogStreams"
         ],
         Resource = "*"
       }

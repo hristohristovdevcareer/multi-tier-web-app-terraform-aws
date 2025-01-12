@@ -22,3 +22,8 @@ variable "NAT_SG" {
   description = "Security group for the NAT instnace"
   type        = string
 }
+
+variable "NAT_KEY_PAIR_NAME" {
+  description = "Key pair name for the NAT instance"
+  type        = string
+}

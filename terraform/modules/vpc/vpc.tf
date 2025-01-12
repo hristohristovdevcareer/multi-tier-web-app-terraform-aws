@@ -37,7 +37,8 @@ resource "aws_subnet" "private" {
 
 # Route Table for the public subnet
 resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
+  for_each = toset(var.AVAILABILITY_ZONES)
+  vpc_id   = aws_vpc.main.id
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw.id
@@ -48,12 +49,13 @@ resource "aws_route_table" "public" {
   }
 }
 
-# Route Table for the private subnets, using NAT Instance
+# # Route Table for the private subnets, using NAT Instance
 resource "aws_route_table" "private" {
-  vpc_id = aws_vpc.main.id
+  for_each = toset(var.AVAILABILITY_ZONES)
+  vpc_id   = aws_vpc.main.id
   route {
     cidr_block           = "0.0.0.0/0"
-    network_interface_id = aws_instance.nat.primary_network_interface_id
+    network_interface_id = aws_instance.nat[each.key].primary_network_interface_id
   }
 
   tags = {
@@ -63,23 +65,29 @@ resource "aws_route_table" "private" {
 
 # Route Table Association for the public subnet
 resource "aws_route_table_association" "public" {
-  for_each       = aws_subnet.public
-  subnet_id      = each.value.id
-  route_table_id = aws_route_table.public.id
+  for_each       = toset(var.AVAILABILITY_ZONES)
+  subnet_id      = aws_subnet.public[each.key].id
+  route_table_id = aws_route_table.public[each.key].id
 }
 
 # Route Table Association for the private subnet
 resource "aws_route_table_association" "private" {
-  for_each       = aws_subnet.private
-  subnet_id      = each.value.id
-  route_table_id = aws_route_table.private.id
+  for_each       = toset(var.AVAILABILITY_ZONES)
+  subnet_id      = aws_subnet.private[each.key].id
+  route_table_id = aws_route_table.private[each.key].id
+}
+
+resource "aws_eip" "nat_eip" {
+  for_each = toset(var.AVAILABILITY_ZONES)
+  instance = aws_instance.nat[each.key].id
 }
 
 # NAT Instance
 resource "aws_instance" "nat" {
+  for_each      = toset(var.AVAILABILITY_ZONES)
   ami           = var.EC2_INSTANCE_AMI # Ubuntu 22.04 LTS in eu-west-2
   instance_type = var.EC2_INSTANCE_TYPE
-  subnet_id     = aws_subnet.public[var.AVAILABILITY_ZONES[0]].id
+  subnet_id     = aws_subnet.public[each.key].id
 
   # Enable source/destination check must be disabled for NAT
   source_dest_check = false
@@ -88,20 +96,50 @@ resource "aws_instance" "nat" {
 
   user_data = base64encode(<<-EOF
               #!/bin/bash
-              # Update and install required packages
-              apt-get update
-              apt-get install -y iptables-persistent
+              export LOG_FILE="/var/log/user_data.log"
 
-              # Enable IP forwarding
-              echo 1 > /proc/sys/net/ipv4/ip_forward
-              echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
+              echo "Create known_hosts file..." >> $${LOG_FILE} 2>&1
+              touch /home/ubuntu/.ssh/known_hosts
+              chmod 644 /home/ubuntu/.ssh/known_hosts
+              echo "Created known_hosts"
 
-              # NAT configuration
-              iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+              echo "Ensure gitlab.com is a known host..." >> $${LOG_FILE} 2>&1
+              ssh-keyscan -t rsa gitlab.com >> /home/ubuntu/.ssh/known_hosts
+              echo "Gitlab host ssh scanned and added to known_hosts"
+
+              echo "Set up SSH keys..." >> $${LOG_FILE} 2>&1
+              echo "${var.NAT_KEY_PAIR_NAME}" | base64 --decode > /home/ubuntu/.ssh/nat_rsa
+              chmod 400 /home/ubuntu/.ssh/nat_rsa
+
+              echo "Update and install required packages..." >> $${LOG_FILE} 2>&1
+              sudo apt-get update >> $${LOG_FILE} 2>&1
+
+              echo "dpkg first init" >> $${LOG_FILE} 2>&1
+              sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a >> $${LOG_FILE} 2>&1
               
-              # Save iptables rules
-              netfilter-persistent save
-              netfilter-persistent reload
+              echo "kill apt and apt-get" >> $${LOG_FILE} 2>&1
+              sudo killall apt apt-get >> $${LOG_FILE} 2>&1
+              
+              echo "dpkg second init" >> $${LOG_FILE} 2>&1
+              sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a >> $${LOG_FILE} 2>&1
+
+              echo "Preconfigure iptables-persistent to avoid interactive prompts..." >> $${LOG_FILE} 2>&1
+              echo "iptables-persistent iptables-persistent/autosave_v4 boolean true" | sudo debconf-set-selections >> $${LOG_FILE} 2>&1
+              echo "iptables-persistent iptables-persistent/autosave_v6 boolean true" | sudo debconf-set-selections >> $${LOG_FILE} 2>&1
+
+              echo "install iptables-persistent" >> $${LOG_FILE} 2>&1
+              sudo apt-get install -y iptables-persistent >> $${LOG_FILE} 2>&1
+
+              echo "Enable IP forwarding..." >> $${LOG_FILE} 2>&1
+              echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward >> $${LOG_FILE} 2>&1
+              echo "net.ipv4.ip_forward = 1" | sudo tee -a /etc/sysctl.conf >> $${LOG_FILE} 2>&1
+
+              echo "NAT configuration..." >> $${LOG_FILE} 2>&1
+              sudo iptables -t nat -A POSTROUTING -o enX0 -j MASQUERADE >> $${LOG_FILE} 2>&1
+              
+              echo "Save iptables rules..." >> $${LOG_FILE} 2>&1
+              sudo netfilter-persistent save >> $${LOG_FILE} 2>&1
+              sudo netfilter-persistent reload >> $${LOG_FILE} 2>&1
               EOF
   )
 
@@ -109,3 +147,6 @@ resource "aws_instance" "nat" {
     Name = "nat-instance"
   }
 }
+
+
+

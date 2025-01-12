@@ -52,6 +52,7 @@ module "vpc" {
   EC2_INSTANCE_AMI   = var.EC2_INSTANCE_AMI
   EC2_INSTANCE_TYPE  = var.EC2_INSTANCE_TYPE
   NAT_SG             = module.security_groups.nat_sg
+  NAT_KEY_PAIR_NAME  = data.vault_generic_secret.nat_ssh_private_key.data["nat_ssh_private_key"]
 }
 
 module "security_groups" {
@@ -60,6 +61,7 @@ module "security_groups" {
   VPC       = module.vpc.vpc_id
   ALLOW_SSH = true
   CIDR_VPC  = var.CIDR_VPC
+  PRIVATE_SUBNET_CIDR_BLOCKS = module.vpc.private_subnet_cidr_blocks
 }
 
 
@@ -73,14 +75,14 @@ module "alb" {
 }
 
 
-module "rds" {
-  source = "./modules/rds"
+# module "rds" {
+#   source = "./modules/rds"
 
-  PRIVATE_SUBNET_IDS    = module.vpc.private_subnet_ids
-  RDS_SECURITY_GROUP_ID = module.security_groups.rds_security_group
-  DB_USERNAME           = data.vault_generic_secret.db_credentials.data["username"]
-  DB_PASSWORD           = data.vault_generic_secret.db_credentials.data["password"]
-}
+#   PRIVATE_SUBNET_IDS    = module.vpc.private_subnet_ids
+#   RDS_SECURITY_GROUP_ID = module.security_groups.rds_security_group
+#   DB_USERNAME           = data.vault_generic_secret.db_credentials.data["username"]
+#   DB_PASSWORD           = data.vault_generic_secret.db_credentials.data["password"]
+# }
 
 module "ecr" {
   source = "./modules/ecr"
@@ -88,10 +90,14 @@ module "ecr" {
   REGION       = var.REGION
   PROJECT_NAME = var.PROJECT_NAME
   SERVICES     = var.SERVICES
-  DB_HOST      = module.rds.db_instance_endpoint
-  DB_NAME      = module.rds.db_instance_name
-  DB_USER      = module.rds.db_instance_username
-  DB_PASSWORD  = module.rds.db_instance_password
+  # DB_HOST      = module.rds.db_instance_endpoint 
+  # DB_NAME      = module.rds.db_instance_name
+  # DB_USER      = module.rds.db_instance_username
+  # DB_PASSWORD  = module.rds.db_instance_password
+  DB_HOST      = "localhost"
+  DB_NAME      = "postgres"
+  DB_USER      = "postgres"
+  DB_PASSWORD  = "postgres"
   IMAGE_TAG    = var.ECR_IMAGE_TAG
 }
 
@@ -114,10 +120,14 @@ module "ecs" {
   BACKEND_ECS_LOG_GROUP            = var.ECS_BACKEND_LOG_GROUP
   ECS_TASK_ROLE_ARN                = module.iam.ecs_task_role_arn
   ECS_TASK_EXECUTION_ROLE_ARN      = module.iam.ecs_task_execution_role_arn
-  DB_HOST                          = module.rds.db_instance_endpoint
-  DB_NAME                          = module.rds.db_instance_name
-  DB_USER                          = module.rds.db_instance_username
-  DB_PASSWORD                      = module.rds.db_instance_password
+  # DB_HOST                          = module.rds.db_instance_endpoint
+  # DB_NAME                          = module.rds.db_instance_name
+  # DB_USER                          = module.rds.db_instance_username
+  # DB_PASSWORD                      = module.rds.db_instance_password
+  DB_HOST                          = "localhost"
+  DB_NAME                          = "postgres"
+  DB_USER                          = "postgres"
+  DB_PASSWORD                      = "postgres"
   SERVER_URL                       = "localhost"
   PROJECT_NAME                     = var.PROJECT_NAME
   IMAGE_TAG                        = var.IMAGE_TAG
@@ -127,9 +137,10 @@ module "ecs" {
   EC2_INSTANCE_AMI                 = var.EC2_INSTANCE_AMI
   IAM_ROLE_DEPENDENCY_FRONTEND_ECS = [module.iam.ecs_task_execution_role, module.iam.ecs_task_role]
   IAM_ROLE_DEPENDENCY_BACKEND_ECS  = [module.iam.ecs_task_execution_role, module.iam.ecs_task_role]
-  FRONTEND_ECS_SECURITY_GROUP_ID   = module.security_groups.frontend_ecs_security_group
-  BACKEND_ECS_SECURITY_GROUP_ID    = module.security_groups.backend_ecs_security_group
+  FRONTEND_ECS_SECURITY_GROUP_ID   = module.security_groups.frontend_instances_security_group
+  BACKEND_ECS_SECURITY_GROUP_ID    = module.security_groups.backend_instances_security_group
   EC2_KEY_PAIR_NAME                = aws_key_pair.ec2.key_name
   EC2_INSTANCE_PROFILE_NAME        = module.iam.ec2_instance_profile_name
+  AVAILABILITY_ZONES               = ["eu-west-2a", "eu-west-2b"]
 }
   

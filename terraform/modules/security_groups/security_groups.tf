@@ -25,8 +25,8 @@ resource "aws_security_group_rule" "alb_ingress" {
   security_group_id = aws_security_group.alb.id
 }
 
-# Security Group for the Frontend ECS
-resource "aws_security_group" "frontend_ecs" {
+# Security Group for the Frontend 
+resource "aws_security_group" "frontend_instances" {
   name        = "frontend-ecs-sg"
   description = "Allow traffic from ALB to Frontend ECS"
   vpc_id      = var.VPC
@@ -43,10 +43,10 @@ resource "aws_security_group_rule" "frontend_from_alb" {
   to_port                  = 80
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.alb.id
-  security_group_id        = aws_security_group.frontend_ecs.id
+  security_group_id        = aws_security_group.frontend_instances.id
 }
 
-# Frontend ECS SSH
+# Frontend SSH
 resource "aws_security_group_rule" "frontend_ssh" {
   count             = var.ALLOW_SSH ? 1 : 0
   type              = "ingress"
@@ -54,31 +54,41 @@ resource "aws_security_group_rule" "frontend_ssh" {
   to_port           = 22
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.frontend_ecs.id
+  security_group_id = aws_security_group.frontend_instances.id
 }
 
-# Frontend ECS egress to the internet
+# Frontend egress to the internet
 resource "aws_security_group_rule" "frontend_egress" {
   type              = "egress"
   from_port         = 0
   to_port           = 0
   protocol          = "-1"
   cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.frontend_ecs.id
+  security_group_id = aws_security_group.frontend_instances.id
 }
 
 # Security Group for the Backend ECS
-resource "aws_security_group" "backend_ecs" {
+resource "aws_security_group" "backend_instances" {
   name        = "backend-ecs-sg"
   description = "Allow traffic from Frontend ECS to Backend ECS"
   vpc_id      = var.VPC
 
   depends_on = [
-    aws_security_group.frontend_ecs,
+    aws_security_group.frontend_instances,
   ]
 }
 
-# Backend ECS SSH
+# Backend ECS to NAT all protocols, all ports
+resource "aws_security_group_rule" "backend_to_nat" {
+  type                     = "egress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  source_security_group_id = aws_security_group.backend_instances.id
+  security_group_id        = aws_security_group.nat.id
+}
+
+# Backend SSH
 resource "aws_security_group_rule" "backend_ssh" {
   count             = var.ALLOW_SSH ? 1 : 0
   type              = "ingress"
@@ -86,65 +96,110 @@ resource "aws_security_group_rule" "backend_ssh" {
   to_port           = 22
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.backend_ecs.id
+  security_group_id = aws_security_group.backend_instances.id
 }
 
-# Backend ECS from Frontend ECS
-resource "aws_security_group_rule" "backend_from_frontend" {
+# Backend from Frontend HTTP
+resource "aws_security_group_rule" "backend_from_frontend_http" {
   type                     = "ingress"
-  from_port                = 3000
-  to_port                  = 3000
+  from_port                = 80
+  to_port                  = 80
   protocol                 = "tcp"
-  source_security_group_id = aws_security_group.frontend_ecs.id
-  security_group_id        = aws_security_group.backend_ecs.id
+  source_security_group_id = aws_security_group.frontend_instances.id
+  security_group_id        = aws_security_group.backend_instances.id
 }
 
-# Security Group for the RDS
-resource "aws_security_group" "rds" {
-  name        = "rds-sg"
-  description = "Allow traffic from Backend ECS to RDS"
-  vpc_id      = var.VPC
-
-  depends_on = [aws_security_group.backend_ecs]
-}
-
-# RDS from Backend ECS 
-resource "aws_security_group_rule" "rds_from_backend" {
+# Backend from Frontend HTTPS
+resource "aws_security_group_rule" "backend_from_frontend_https" {
   type                     = "ingress"
-  from_port                = 5432
-  to_port                  = 5432
+  from_port                = 443
+  to_port                  = 443
   protocol                 = "tcp"
-  source_security_group_id = aws_security_group.backend_ecs.id
-  security_group_id        = aws_security_group.rds.id
+  source_security_group_id = aws_security_group.frontend_instances.id
+  security_group_id        = aws_security_group.backend_instances.id
 }
 
-# Backend ECS egress to the internet
-resource "aws_security_group_rule" "backend_egress" {
+
+
+# Backend egress to the internet for all protocols
+resource "aws_security_group_rule" "backend_egress_all_protocols" {
   type              = "egress"
   from_port         = 0
   to_port           = 0
   protocol          = "-1"
   cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.backend_ecs.id
+  security_group_id = aws_security_group.backend_instances.id
 }
+
+
+# Security Group for the RDS
+# resource "aws_security_group" "rds" {
+#   name        = "rds-sg"
+#   description = "Allow traffic from Backend ECS to RDS"
+#   vpc_id      = var.VPC
+
+#   depends_on = [aws_security_group.backend_instances]
+# }
+
+# RDS from Backend 
+# resource "aws_security_group_rule" "rds_from_backend" {
+#   type                     = "ingress"
+#   from_port                = 5432
+#   to_port                  = 5432
+#   protocol                 = "tcp"
+#   source_security_group_id = aws_security_group.backend_instances.id
+#   security_group_id        = aws_security_group.rds.id
+# }
+
 
 # Allow ECS agent communication
-resource "aws_security_group_rule" "ecs_agent" {
+resource "aws_security_group_rule" "frontend_instances_https" {
   type              = "ingress"
   from_port         = 443
   to_port           = 443
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.frontend_ecs.id
+  security_group_id = aws_security_group.frontend_instances.id
 }
 
-resource "aws_security_group_rule" "backend_ecs_agent" {
+# Allow Frontend ECS HTTP
+resource "aws_security_group_rule" "frontend_instances_http" {
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.frontend_instances.id
+}
+
+# Frontend app port
+resource "aws_security_group_rule" "frontend_instances_app_port" {
+  type              = "ingress"
+  from_port         = 3000
+  to_port           = 3000
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.frontend_instances.id
+}
+
+# Allow Backend  HTTPS
+resource "aws_security_group_rule" "backend_instances_https" {
   type              = "ingress"
   from_port         = 443
   to_port           = 443
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.backend_ecs.id
+  security_group_id = aws_security_group.backend_instances.id
+}
+
+# Allow Backend  HTTP
+resource "aws_security_group_rule" "backend_instances_http" {
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.backend_instances.id
 }
 
 # Security group for NAT Instance
@@ -153,21 +208,57 @@ resource "aws_security_group" "nat" {
   description = "Security group for NAT instance"
   vpc_id      = var.VPC
 
-  ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = [var.CIDR_VPC]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   tags = {
     Name = "nat-security-group"
   }
+}
+
+resource "aws_security_group_rule" "nat_ssh_ingress" {
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.nat.id
+}
+
+# Backend SSH from NAT
+resource "aws_security_group_rule" "backend_ssh_from_nat" {
+  type                     = "ingress"
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.nat.id
+  security_group_id        = aws_security_group.backend_instances.id
+}
+
+#Nat instance to backend 
+resource "aws_security_group_rule" "nat_to_backend_instances" {
+  type                     = "egress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  source_security_group_id = aws_security_group.nat.id
+  security_group_id        = aws_security_group.backend_instances.id
+}
+
+
+# NAT Instance ingress from Backend 
+resource "aws_security_group_rule" "nat_ingress_from_backend" {
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  source_security_group_id = aws_security_group.backend_instances.id
+  security_group_id        = aws_security_group.nat.id
+}
+
+#NAT to the internet
+resource "aws_security_group_rule" "nat_to_internet" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.nat.id
 }

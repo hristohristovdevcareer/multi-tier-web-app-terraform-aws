@@ -13,3 +13,7 @@ data "vault_generic_secret" "ec2_ssh_public_key" {
 data "vault_generic_secret" "db_credentials" {
   path = "secret/db_credentials"
 }
+
+data "vault_generic_secret" "nat_ssh_private_key" {
+  path = "secret/ec2_ssh"
+}

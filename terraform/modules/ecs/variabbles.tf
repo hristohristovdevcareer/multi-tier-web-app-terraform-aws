@@ -123,3 +123,9 @@ variable "EC2_INSTANCE_PROFILE_NAME" {
   description = "EC2 Instance Profile Name"
   type        = string
 }
+
+variable "AVAILABILITY_ZONES" {
+  description = "Availability Zones"
+  type        = list(string)
+}
+

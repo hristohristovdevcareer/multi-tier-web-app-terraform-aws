@@ -21,6 +21,7 @@ _Variables that need to be set in vault_
 
 1. Group - ec2_ssh \
     1.1. var - ec2_ssh_public_key \
+    1.2. var - nat_ssh_private_key \
 2. Group - gitlab_keys \
     1.1. var - gitlab_private_key \
     1.2. var - gitlab_public_key \
