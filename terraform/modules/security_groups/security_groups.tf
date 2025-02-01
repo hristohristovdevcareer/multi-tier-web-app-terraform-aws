@@ -5,6 +5,16 @@ resource "aws_security_group" "alb" {
   vpc_id      = var.VPC
 }
 
+# Allow ALB to access container port 8080 on frontend instances
+resource "aws_security_group_rule" "frontend_from_alb_app_port" {
+  type                     = "ingress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.alb.id
+  security_group_id        = aws_security_group.frontend_instances.id
+}
+
 # ALB egresss to the internet
 resource "aws_security_group_rule" "alb_egress" {
   type              = "egress"
@@ -36,15 +46,15 @@ resource "aws_security_group" "frontend_instances" {
   ]
 }
 
-# Frontend ECS from ALB
-resource "aws_security_group_rule" "frontend_from_alb" {
-  type                     = "ingress"
-  from_port                = 80
-  to_port                  = 80
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.alb.id
-  security_group_id        = aws_security_group.frontend_instances.id
-}
+# # Frontend ECS from ALB
+# resource "aws_security_group_rule" "frontend_from_alb" {
+#   type                     = "ingress"
+#   from_port                = 80
+#   to_port                  = 80
+#   protocol                 = "tcp"
+#   source_security_group_id = aws_security_group.alb.id
+#   security_group_id        = aws_security_group.frontend_instances.id
+# }
 
 # Frontend SSH
 resource "aws_security_group_rule" "frontend_ssh" {
@@ -58,12 +68,53 @@ resource "aws_security_group_rule" "frontend_ssh" {
 }
 
 # Frontend egress to the internet
-resource "aws_security_group_rule" "frontend_egress" {
+resource "aws_security_group_rule" "frontend_egress_all_protocols" {
   type              = "egress"
   from_port         = 0
   to_port           = 0
   protocol          = "-1"
   cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.frontend_instances.id
+}
+
+
+# Allow ECS agent communication
+resource "aws_security_group_rule" "frontend_instances_https" {
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.frontend_instances.id
+}
+
+# Allow Frontend ECS HTTP
+resource "aws_security_group_rule" "frontend_instances_http" {
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.frontend_instances.id
+}
+
+# Frontend app port
+resource "aws_security_group_rule" "frontend_instances_app_port" {
+  type              = "ingress"
+  from_port         = 32768
+  to_port           = 65535
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.frontend_instances.id
+}
+
+# Allow ECS agent communication (port 51678)
+resource "aws_security_group_rule" "frontend_ecs_agent" {
+  type              = "ingress"
+  from_port         = 51678
+  to_port           = 51678
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"] # You might want to restrict this to VPC CIDR
   security_group_id = aws_security_group.frontend_instances.id
 }
 
@@ -76,6 +127,16 @@ resource "aws_security_group" "backend_instances" {
   depends_on = [
     aws_security_group.frontend_instances,
   ]
+}
+
+# Allow frontend to access container port 8080 on backend instances
+resource "aws_security_group_rule" "backend_from_frontend_app_port" {
+  type                     = "ingress"
+  from_port                = 32768
+  to_port                  = 65535
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.frontend_instances.id
+  security_group_id        = aws_security_group.backend_instances.id
 }
 
 # Backend ECS to NAT all protocols, all ports
@@ -120,18 +181,6 @@ resource "aws_security_group_rule" "backend_from_frontend_https" {
 }
 
 
-
-# Backend egress to the internet for all protocols
-resource "aws_security_group_rule" "backend_egress_all_protocols" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.backend_instances.id
-}
-
-
 # Security Group for the RDS
 # resource "aws_security_group" "rds" {
 #   name        = "rds-sg"
@@ -151,35 +200,24 @@ resource "aws_security_group_rule" "backend_egress_all_protocols" {
 #   security_group_id        = aws_security_group.rds.id
 # }
 
-
-# Allow ECS agent communication
-resource "aws_security_group_rule" "frontend_instances_https" {
-  type              = "ingress"
-  from_port         = 443
-  to_port           = 443
-  protocol          = "tcp"
+# Backend egress to the internet for all protocols
+resource "aws_security_group_rule" "backend_egress_all_protocols" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
   cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.frontend_instances.id
+  security_group_id = aws_security_group.backend_instances.id
 }
 
-# Allow Frontend ECS HTTP
-resource "aws_security_group_rule" "frontend_instances_http" {
+# Allow ECS agent communication (port 51678)
+resource "aws_security_group_rule" "backend_instances_ecs_agent" {
   type              = "ingress"
-  from_port         = 80
-  to_port           = 80
+  from_port         = 51678
+  to_port           = 51678
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.frontend_instances.id
-}
-
-# Frontend app port
-resource "aws_security_group_rule" "frontend_instances_app_port" {
-  type              = "ingress"
-  from_port         = 3000
-  to_port           = 3000
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.frontend_instances.id
+  security_group_id = aws_security_group.backend_instances.id
 }
 
 # Allow Backend  HTTPS

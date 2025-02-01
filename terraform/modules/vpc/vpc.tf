@@ -133,6 +133,12 @@ resource "aws_instance" "nat" {
               echo "Enable IP forwarding..." >> $${LOG_FILE} 2>&1
               echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward >> $${LOG_FILE} 2>&1
               echo "net.ipv4.ip_forward = 1" | sudo tee -a /etc/sysctl.conf >> $${LOG_FILE} 2>&1
+  
+              # TCP Keepalive
+              echo 'net.ipv4.tcp_keepalive_time = 60' | sudo tee -a /etc/sysctl.conf >> $${LOG_FILE} 2>&1
+              echo 'net.ipv4.tcp_keepalive_intvl = 10' | sudo tee -a /etc/sysctl.conf >> $${LOG_FILE} 2>&1
+              echo 'net.ipv4.tcp_keepalive_probes = 6' | sudo tee -a /etc/sysctl.conf >> $${LOG_FILE} 2>&1
+              sysctl -p >> $${LOG_FILE} 2>&1
 
               echo "NAT configuration..." >> $${LOG_FILE} 2>&1
               sudo iptables -t nat -A POSTROUTING -o enX0 -j MASQUERADE >> $${LOG_FILE} 2>&1

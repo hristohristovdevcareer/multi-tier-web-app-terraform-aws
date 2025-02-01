@@ -53,7 +53,9 @@ resource "aws_ecs_capacity_provider" "frontend_capacity_provider" {
       minimum_scaling_step_size = 1
       status                    = "ENABLED"
       target_capacity           = 70
+      instance_warmup_period    = 500
     }
+    managed_termination_protection = "ENABLED"
   }
 }
 
@@ -67,7 +69,9 @@ resource "aws_ecs_capacity_provider" "backend_capacity_provider" {
       minimum_scaling_step_size = 1
       status                    = "ENABLED"
       target_capacity           = 70
+      instance_warmup_period    = 500
     }
+    managed_termination_protection = "ENABLED"
   }
 }
 
@@ -77,23 +81,45 @@ resource "aws_ecs_task_definition" "frontend-task-definition" {
   family                   = "frontend-task"
   network_mode             = "bridge"
   requires_compatibilities = ["EC2"]
-  cpu                      = "128"
-  memory                   = "256"
+  cpu                      = "512"
+  memory                   = "512"
   task_role_arn            = var.ECS_TASK_ROLE_ARN
   execution_role_arn       = var.ECS_TASK_EXECUTION_ROLE_ARN
 
   container_definitions = jsonencode([{
+    memory = 512
+    memoryReservation = 256
+    ulimits = [
+      {
+        name = "nofile",
+        softLimit = 4096,
+        hardLimit = 4096
+      },
+      {
+        name = "nproc",
+        softLimit = 2048,
+        hardLimit = 4096
+      },
+      {
+        name = "core",
+        softLimit = 0,
+        hardLimit = 0
+      }
+    ]
     name  = "frontend-task"
-    image = "${var.BACKEND_ECR_REPO}:${var.IMAGE_TAG}"
+    image = "${var.BACKEND_ECR_REPO}:latest"
     logConfiguration = {
       logDriver = "awslogs"
       options = {
         awslogs-group         = "/ecs/frontend"
         awslogs-region        = var.REGION
-        awslogs-stream-prefix = "frontend"
       }
     }
     environment = [
+      {
+        name  = "PROJECT_NAME"
+        value = var.PROJECT_NAME
+      },
       {
         name  = "SERVER_URL"
         value = var.SERVER_URL
@@ -112,14 +138,8 @@ resource "aws_ecs_task_definition" "frontend-task-definition" {
       }
     ]
     portMappings = [{
-      containerPort = 3000
-      hostPort      = 3000
-      }, {
-      containerPort = 80
-      hostPort      = 80
-      }, {
-      containerPort = 443
-      hostPort      = 443
+      containerPort = 8080
+      hostPort      = 0
     }]
     essential = true
   }])
@@ -134,23 +154,26 @@ resource "aws_ecs_task_definition" "backend-task-definition" {
   family                   = "backend-task"
   network_mode             = "bridge"
   requires_compatibilities = ["EC2"]
-  cpu                      = "128"
-  memory                   = "512"
+  cpu                      = "256"
+  memory                   = "256"
   task_role_arn            = var.ECS_TASK_ROLE_ARN
   execution_role_arn       = var.ECS_TASK_EXECUTION_ROLE_ARN
 
   container_definitions = jsonencode([{
     name  = "backend-task"
-    image = "${var.BACKEND_ECR_REPO}:${var.IMAGE_TAG}"
+    image = "${var.BACKEND_ECR_REPO}:latest"
     logConfiguration = {
       logDriver = "awslogs"
       options = {
         awslogs-group         = "/ecs/backend"
         awslogs-region        = var.REGION
-        awslogs-stream-prefix = "backend"
       }
     }
     environment = [
+      {
+        name  = "PROJECT_NAME"
+        value = var.PROJECT_NAME
+      },
       {
         name  = "DB_HOST"
         value = var.DB_HOST
@@ -182,13 +205,7 @@ resource "aws_ecs_task_definition" "backend-task-definition" {
     ]
     portMappings = [{
       containerPort = 8080
-      hostPort      = 8080
-      }, {
-      containerPort = 80
-      hostPort      = 80
-      }, {
-      containerPort = 443
-      hostPort      = 443
+      hostPort      = 0
     }]
     essential = true
   }])
@@ -201,10 +218,11 @@ resource "aws_ecs_task_definition" "backend-task-definition" {
 
 # ECS Service for Frontend
 resource "aws_ecs_service" "frontend-service" {
-  name            = "frontend-service"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.frontend-task-definition.arn
-  desired_count   = 1
+  name                              = "frontend-service"
+  cluster                           = aws_ecs_cluster.main.id
+  task_definition                   = aws_ecs_task_definition.frontend-task-definition.arn
+  desired_count                     = 1
+  health_check_grace_period_seconds = 600 # Match 500-600s startup time
 
   capacity_provider_strategy {
     capacity_provider = aws_ecs_capacity_provider.frontend_capacity_provider.name
@@ -214,39 +232,49 @@ resource "aws_ecs_service" "frontend-service" {
   load_balancer {
     target_group_arn = var.FRONTEND_TARGET_GROUP_ARN
     container_name   = aws_ecs_task_definition.frontend-task-definition.family
-    container_port   = 3000
+    container_port   = 8080
+  }
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
   }
 
   tags = {
     Name = "frontend-service"
   }
 
-  depends_on = [var.IAM_ROLE_DEPENDENCY_FRONTEND_ECS]
+  depends_on = [var.IAM_ROLE_DEPENDENCY_FRONTEND_ECS, aws_autoscaling_group.frontend-autoscaling-group, aws_ecs_capacity_provider.frontend_capacity_provider]
 }
 
 # ECS Service for Backend
 resource "aws_ecs_service" "backend-service" {
-  name            = "backend-service"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.backend-task-definition.arn
-  desired_count   = 1
-
+  name                              = "backend-service"
+  cluster                           = aws_ecs_cluster.main.id
+  task_definition                   = aws_ecs_task_definition.backend-task-definition.arn
+  desired_count                     = 1
+  health_check_grace_period_seconds = 600 # Match 500-600s startup time
 
   capacity_provider_strategy {
     capacity_provider = aws_ecs_capacity_provider.backend_capacity_provider.name
     weight            = 100
   }
 
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+
   tags = {
     Name = "backend-service"
   }
 
-  depends_on = [var.IAM_ROLE_DEPENDENCY_BACKEND_ECS]
+  depends_on = [var.IAM_ROLE_DEPENDENCY_BACKEND_ECS, aws_autoscaling_group.backend-autoscaling-group, aws_ecs_capacity_provider.backend_capacity_provider]
 }
 
 
 resource "aws_appautoscaling_target" "frontend-app-autoscaling-target" {
-  max_capacity       = 3
+  max_capacity       = 2
   min_capacity       = 1
   resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.frontend-service.name}"
   scalable_dimension = "ecs:service:DesiredCount"
@@ -261,17 +289,17 @@ resource "aws_appautoscaling_policy" "frontend_cpu" {
   service_namespace  = aws_appautoscaling_target.frontend-app-autoscaling-target.service_namespace
 
   target_tracking_scaling_policy_configuration {
-    target_value = 50.0
+    target_value = 70.0
     predefined_metric_specification {
       predefined_metric_type = "ECSServiceAverageCPUUtilization"
     }
-    scale_in_cooldown  = 300
+    scale_in_cooldown  = 600
     scale_out_cooldown = 300
   }
 }
 
 resource "aws_appautoscaling_target" "backend-app-autoscaling-target" {
-  max_capacity       = 3
+  max_capacity       = 2
   min_capacity       = 1
   resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.backend-service.name}"
   scalable_dimension = "ecs:service:DesiredCount"
@@ -286,11 +314,11 @@ resource "aws_appautoscaling_policy" "backend_cpu" {
   service_namespace  = aws_appautoscaling_target.backend-app-autoscaling-target.service_namespace
 
   target_tracking_scaling_policy_configuration {
-    target_value = 50.0
+    target_value = 70.0
     predefined_metric_specification {
       predefined_metric_type = "ECSServiceAverageCPUUtilization"
     }
-    scale_in_cooldown  = 300
+    scale_in_cooldown  = 600
     scale_out_cooldown = 300
   }
 }
@@ -300,15 +328,18 @@ resource "aws_autoscaling_group" "frontend-autoscaling-group" {
     id      = aws_launch_template.frontend-template.id
     version = "$Latest"
   }
-  min_size         = length(var.AVAILABILITY_ZONES)
-  max_size         = length(var.AVAILABILITY_ZONES) * 2
-  desired_capacity = length(var.AVAILABILITY_ZONES)
+  min_size            = 1
+  max_size            = 2
+  desired_capacity    = 1
   vpc_zone_identifier = var.PUBLIC_SUBNET_IDS
+
+  force_delete          = true
+  protect_from_scale_in = true
 
   # Force spread across AZs
   tag {
     key                 = "AmazonECSManaged"
-    value               = ""
+    value               = true
     propagate_at_launch = true
   }
 
@@ -324,15 +355,18 @@ resource "aws_autoscaling_group" "backend-autoscaling-group" {
     id      = aws_launch_template.backend-template.id
     version = "$Latest"
   }
-  min_size         = length(var.AVAILABILITY_ZONES)
-  max_size         = length(var.AVAILABILITY_ZONES) * 2
-  desired_capacity = length(var.AVAILABILITY_ZONES)
+  min_size            = 1
+  max_size            = 2
+  desired_capacity    = 1
   vpc_zone_identifier = var.PRIVATE_SUBNET_IDS
+
+  force_delete          = true
+  protect_from_scale_in = true
 
   # Force spread across AZs
   tag {
     key                 = "AmazonECSManaged"
-    value               = ""
+    value               = true
     propagate_at_launch = true
   }
 
@@ -378,7 +412,7 @@ resource "aws_autoscaling_policy" "backend_scale_in" {
 resource "aws_launch_template" "frontend-template" {
   name          = "frontend-launch-template"
   image_id      = var.EC2_INSTANCE_AMI
-  instance_type = var.EC2_INSTANCE_TYPE
+  instance_type = "t3.micro"
 
   key_name               = var.EC2_KEY_PAIR_NAME
   vpc_security_group_ids = [var.FRONTEND_ECS_SECURITY_GROUP_ID]
@@ -393,6 +427,8 @@ resource "aws_launch_template" "frontend-template" {
     ECS_CONTAINER_INSTANCE_TAGS = replace(jsonencode({ "AG_GROUP-FRONTEND" = "frontend-ag-group" }), "\"", "\\\"")
     MAX_RETRIES                 = 5
     RETRY_INTERVAL              = 10
+    LOG_GROUP_NAME              = "/ecs/frontend"
+    REGION                      = var.REGION
   }))
 
   tags = {
@@ -402,8 +438,8 @@ resource "aws_launch_template" "frontend-template" {
 
 resource "aws_launch_template" "backend-template" {
   name          = "backend-launch-template"
-  image_id      = var.EC2_INSTANCE_AMI  # Replace with your AMI ID
-  instance_type = var.EC2_INSTANCE_TYPE # Replace with your desired instance type
+  image_id      = var.EC2_INSTANCE_AMI
+  instance_type = var.EC2_INSTANCE_TYPE
 
   key_name               = var.EC2_KEY_PAIR_NAME
   vpc_security_group_ids = [var.BACKEND_ECS_SECURITY_GROUP_ID]
@@ -419,6 +455,8 @@ resource "aws_launch_template" "backend-template" {
     ECS_CONTAINER_INSTANCE_TAGS = replace(jsonencode({ "AG_GROUP-BACKEND" = "backend-ag-group" }), "\"", "\\\"")
     MAX_RETRIES                 = 5
     RETRY_INTERVAL              = 10
+    LOG_GROUP_NAME              = "/ecs/backend"
+    REGION                      = var.REGION
   }))
 
   tags = {
@@ -428,10 +466,61 @@ resource "aws_launch_template" "backend-template" {
 
 resource "aws_cloudwatch_log_group" "frontend_log_group" {
   name              = "/ecs/frontend"
-  retention_in_days = 7
+  retention_in_days = 1
 }
 
 resource "aws_cloudwatch_log_group" "backend_log_group" {
   name              = "/ecs/backend"
-  retention_in_days = 7
+  retention_in_days = 1
+}
+
+# Log Group with retention to manage costs
+resource "aws_cloudwatch_log_group" "ecs_agent" {
+  name              = "/ecs/ecs-agent"
+  retention_in_days = 1
+}
+
+# Basic Metric Alarm for ECS Agent
+resource "aws_cloudwatch_metric_alarm" "ecs_agent_connected" {
+  alarm_name          = "ecs-agent-connected"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "ContainerInstanceCount"
+  namespace           = "AWS/ECS"
+  period              = "300" # 5 minutes to stay within free tier
+  statistic           = "Average"
+  threshold           = "1"
+  alarm_description   = "This metric monitors ECS agent connectivity"
+
+  dimensions = {
+    ClusterName = aws_ecs_cluster.main.name
+  }
+}
+
+resource "aws_cloudwatch_log_metric_filter" "ecs_errors" {
+  name           = "ecs-errors"
+  pattern        = "[timestamp, level=ERROR, ...]"
+  log_group_name = aws_cloudwatch_log_group.ecs_agent.name
+
+  metric_transformation {
+    name      = "ECSErrors"
+    namespace = "ECS/Errors"
+    value     = "1"
+  }
+}
+
+resource "aws_cloudwatch_dashboard" "ecs" {
+  dashboard_name = "ecs-errors"
+  dashboard_body = jsonencode({
+    widgets = [
+      {
+        type = "log",
+        properties = {
+          query  = "fields @timestamp, @message | filter @message like /(?i)(error|failed|exception)/"
+          region = var.REGION
+          title  = "ECS Errors"
+        }
+      }
+    ]
+  })
 }

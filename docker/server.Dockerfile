@@ -4,6 +4,8 @@ WORKDIR /app
 
 COPY ./server/package*.json ./
 
+RUN apk add --no-cache curl
+
 RUN npm install
 
 COPY ./server .
