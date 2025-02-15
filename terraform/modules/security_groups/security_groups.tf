@@ -5,33 +5,60 @@ resource "aws_security_group" "alb" {
   vpc_id      = var.VPC
 }
 
-# Allow ALB to access container port 8080 on frontend instances
-resource "aws_security_group_rule" "frontend_from_alb_app_port" {
-  type                     = "ingress"
+# ALB egress for health checks
+resource "aws_security_group_rule" "alb_egress_healthcheck" {
+  type                     = "egress"
   from_port                = 8080
   to_port                  = 8080
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.frontend_instances.id
+  security_group_id        = aws_security_group.alb.id
+}
+
+# ALB egress to ECS instances
+resource "aws_security_group_rule" "alb_egress_to_ecs" {
+  type                     = "egress"
+  from_port                = 32768
+  to_port                  = 65535
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.frontend_instances.id
+  security_group_id        = aws_security_group.alb.id
+}
+
+# ALB ingress from ECS
+resource "aws_security_group_rule" "alb_ingress_from_ecs" {
+  type                     = "ingress"
+  from_port                = 32768
+  to_port                  = 65535
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.alb.id
   security_group_id        = aws_security_group.frontend_instances.id
 }
 
-# ALB egresss to the internet
-resource "aws_security_group_rule" "alb_egress" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.alb.id
-}
-
-# Now add the rules as separate resources to avoid circular dependencies
-resource "aws_security_group_rule" "alb_ingress" {
-  type              = "ingress"
-  from_port         = 80
-  to_port           = 80
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
+# ALB https from the internet
+resource "aws_security_group_rule" "alb_ingress_https" {
+  type      = "ingress"
+  from_port = 443
+  to_port   = 443
+  protocol  = "tcp"
+  # Cloudflare IPv4 ranges - you should regularly update these
+  cidr_blocks = [
+    "173.245.48.0/20",
+    "103.21.244.0/22",
+    "103.22.200.0/22",
+    "103.31.4.0/22",
+    "141.101.64.0/18",
+    "108.162.192.0/18",
+    "190.93.240.0/20",
+    "188.114.96.0/20",
+    "197.234.240.0/22",
+    "198.41.128.0/17",
+    "162.158.0.0/15",
+    "104.16.0.0/13",
+    "104.24.0.0/14",
+    "172.64.0.0/13",
+    "131.0.72.0/22"
+  ]
   security_group_id = aws_security_group.alb.id
 }
 
@@ -137,16 +164,6 @@ resource "aws_security_group_rule" "backend_from_frontend_app_port" {
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.frontend_instances.id
   security_group_id        = aws_security_group.backend_instances.id
-}
-
-# Backend ECS to NAT all protocols, all ports
-resource "aws_security_group_rule" "backend_to_nat" {
-  type                     = "egress"
-  from_port                = 0
-  to_port                  = 0
-  protocol                 = "-1"
-  source_security_group_id = aws_security_group.backend_instances.id
-  security_group_id        = aws_security_group.nat.id
 }
 
 # Backend SSH
@@ -260,33 +277,42 @@ resource "aws_security_group_rule" "nat_ssh_ingress" {
   security_group_id = aws_security_group.nat.id
 }
 
-# Backend SSH from NAT
-resource "aws_security_group_rule" "backend_ssh_from_nat" {
-  type                     = "ingress"
-  from_port                = 22
-  to_port                  = 22
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.nat.id
-  security_group_id        = aws_security_group.backend_instances.id
-}
-
-#Nat instance to backend 
-resource "aws_security_group_rule" "nat_to_backend_instances" {
+# NAT Instance Security Group Rules
+resource "aws_security_group_rule" "nat_to_backend" {
   type                     = "egress"
   from_port                = 0
   to_port                  = 0
-  protocol                 = "-1"
+  protocol                 = "-1" # All protocols
+  source_security_group_id = aws_security_group.backend_instances.id
+  security_group_id        = aws_security_group.nat.id
+}
+
+# Backend Instance Security Group Rules
+resource "aws_security_group_rule" "backend_from_nat" {
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1" # All protocols
   source_security_group_id = aws_security_group.nat.id
   security_group_id        = aws_security_group.backend_instances.id
 }
 
+# Backend to NAT (for internet access)
+resource "aws_security_group_rule" "backend_to_nat" {
+  type                     = "egress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1" # All protocols
+  source_security_group_id = aws_security_group.nat.id
+  security_group_id        = aws_security_group.backend_instances.id
+}
 
-# NAT Instance ingress from Backend 
-resource "aws_security_group_rule" "nat_ingress_from_backend" {
+# NAT from Backend
+resource "aws_security_group_rule" "nat_from_backend" {
   type                     = "ingress"
   from_port                = 0
   to_port                  = 0
-  protocol                 = "-1"
+  protocol                 = "-1" # All protocols
   source_security_group_id = aws_security_group.backend_instances.id
   security_group_id        = aws_security_group.nat.id
 }

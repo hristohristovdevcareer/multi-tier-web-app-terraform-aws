@@ -18,6 +18,11 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 4.0"
+    }
   }
 }
 
@@ -58,9 +63,9 @@ module "vpc" {
 module "security_groups" {
   source = "./modules/security_groups"
 
-  VPC       = module.vpc.vpc_id
-  ALLOW_SSH = true
-  CIDR_VPC  = var.CIDR_VPC
+  VPC                        = module.vpc.vpc_id
+  ALLOW_SSH                  = true
+  CIDR_VPC                   = var.CIDR_VPC
   PRIVATE_SUBNET_CIDR_BLOCKS = module.vpc.private_subnet_cidr_blocks
 }
 
@@ -72,8 +77,10 @@ module "alb" {
   PUBLIC_SUBNET_IDS     = module.vpc.public_subnet_ids
   PRIVATE_SUBNET_IDS    = module.vpc.private_subnet_ids
   ALB_SECURITY_GROUP_ID = module.security_groups.alb_security_group
+  DOMAIN_NAME           = var.DOMAIN_NAME
+  CLOUDFLARE_ZONE_ID    = var.CLOUDFLARE_ZONE_ID
+  CLOUDFLARE_API_TOKEN  = var.CLOUDFLARE_API_TOKEN
 }
-
 
 # module "rds" {
 #   source = "./modules/rds"
@@ -94,11 +101,11 @@ module "ecr" {
   # DB_NAME      = module.rds.db_instance_name
   # DB_USER      = module.rds.db_instance_username
   # DB_PASSWORD  = module.rds.db_instance_password
-  DB_HOST      = "localhost"
-  DB_NAME      = "postgres"
-  DB_USER      = "postgres"
-  DB_PASSWORD  = "postgres"
-  IMAGE_TAG    = var.ECR_IMAGE_TAG
+  DB_HOST     = "localhost"
+  DB_NAME     = "postgres"
+  DB_USER     = "postgres"
+  DB_PASSWORD = "postgres"
+  IMAGE_TAG   = var.ECR_IMAGE_TAG
 }
 
 module "iam" {
@@ -112,14 +119,14 @@ module "iam" {
 module "ecs" {
   source = "./modules/ecs"
 
-  FRONTEND_ECR_REPO                = module.ecr.web_app_repository_url
-  BACKEND_ECR_REPO                 = module.ecr.server_repository_url
-  FRONTEND_TARGET_GROUP_ARN        = module.alb.frontend_target_group_arn
-  REGION                           = var.REGION
-  FRONTEND_ECS_LOG_GROUP           = var.ECS_FRONTEND_LOG_GROUP
-  BACKEND_ECS_LOG_GROUP            = var.ECS_BACKEND_LOG_GROUP
-  ECS_TASK_ROLE_ARN                = module.iam.ecs_task_role_arn
-  ECS_TASK_EXECUTION_ROLE_ARN      = module.iam.ecs_task_execution_role_arn
+  FRONTEND_ECR_REPO           = module.ecr.web_app_repository_url
+  BACKEND_ECR_REPO            = module.ecr.server_repository_url
+  FRONTEND_TARGET_GROUP_ARN   = module.alb.frontend_target_group_arn
+  REGION                      = var.REGION
+  FRONTEND_ECS_LOG_GROUP      = var.ECS_FRONTEND_LOG_GROUP
+  BACKEND_ECS_LOG_GROUP       = var.ECS_BACKEND_LOG_GROUP
+  ECS_TASK_ROLE_ARN           = module.iam.ecs_task_role_arn
+  ECS_TASK_EXECUTION_ROLE_ARN = module.iam.ecs_task_execution_role_arn
   # DB_HOST                          = module.rds.db_instance_endpoint
   # DB_NAME                          = module.rds.db_instance_name
   # DB_USER                          = module.rds.db_instance_username

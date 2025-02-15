@@ -133,3 +133,18 @@ variable "ECR_IMAGE_TAG" {
   description = "ECR Image tag"
   type        = string
 }
+
+variable "DOMAIN_NAME" {
+  description = "Domain name"
+  type        = string
+}
+
+variable "CLOUDFLARE_ZONE_ID" {
+  description = "Cloudflare zone ID"
+  type        = string
+}
+
+variable "CLOUDFLARE_API_TOKEN" {
+  description = "Cloudflare API token"
+  type        = string
+}

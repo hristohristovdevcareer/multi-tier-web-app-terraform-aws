@@ -140,8 +140,14 @@ resource "aws_instance" "nat" {
               echo 'net.ipv4.tcp_keepalive_probes = 6' | sudo tee -a /etc/sysctl.conf >> $${LOG_FILE} 2>&1
               sysctl -p >> $${LOG_FILE} 2>&1
 
+               Add these lines here for NAT configuration
+              echo "Detecting primary network interface..." >> $${LOG_FILE} 2>&1
+              PRIMARY_INTERFACE=$(ip route get 8.8.8.8 | grep -oP "dev \K\S+")
+              echo "Primary interface is: $PRIMARY_INTERFACE" >> $${LOG_FILE} 2>&1
+
               echo "NAT configuration..." >> $${LOG_FILE} 2>&1
-              sudo iptables -t nat -A POSTROUTING -o enX0 -j MASQUERADE >> $${LOG_FILE} 2>&1
+              sudo iptables -t nat -F POSTROUTING
+              sudo iptables -t nat -A POSTROUTING -o $PRIMARY_INTERFACE -j MASQUERADE >> $${LOG_FILE} 2>&1
               
               echo "Save iptables rules..." >> $${LOG_FILE} 2>&1
               sudo netfilter-persistent save >> $${LOG_FILE} 2>&1

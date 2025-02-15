@@ -17,3 +17,18 @@ variable "ALB_SECURITY_GROUP_ID" {
   description = "ALB Security Group ID"
   type        = string
 }
+
+variable "DOMAIN_NAME" {
+  description = "Domain name"
+  type        = string
+}
+
+variable "CLOUDFLARE_ZONE_ID" {
+  description = "Cloudflare zone ID"
+  type        = string
+}
+
+variable "CLOUDFLARE_API_TOKEN" {
+  description = "Cloudflare API token"
+  type        = string
+}

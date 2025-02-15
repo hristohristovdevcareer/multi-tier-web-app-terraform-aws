@@ -52,8 +52,8 @@ resource "aws_ecs_capacity_provider" "frontend_capacity_provider" {
       maximum_scaling_step_size = 1
       minimum_scaling_step_size = 1
       status                    = "ENABLED"
-      target_capacity           = 70
-      instance_warmup_period    = 500
+      target_capacity           = 50 #Use 70 in general, but 50 to simplify instance scaling
+      instance_warmup_period    = 300
     }
     managed_termination_protection = "ENABLED"
   }
@@ -68,8 +68,8 @@ resource "aws_ecs_capacity_provider" "backend_capacity_provider" {
       maximum_scaling_step_size = 1
       minimum_scaling_step_size = 1
       status                    = "ENABLED"
-      target_capacity           = 70
-      instance_warmup_period    = 500
+      target_capacity           = 50 #Use 70 in general, but 50 to simplify instance scaling
+      instance_warmup_period    = 300
     }
     managed_termination_protection = "ENABLED"
   }
@@ -81,27 +81,28 @@ resource "aws_ecs_task_definition" "frontend-task-definition" {
   family                   = "frontend-task"
   network_mode             = "bridge"
   requires_compatibilities = ["EC2"]
-  cpu                      = "512"
+  cpu                      = "256"
   memory                   = "512"
   task_role_arn            = var.ECS_TASK_ROLE_ARN
   execution_role_arn       = var.ECS_TASK_EXECUTION_ROLE_ARN
 
   container_definitions = jsonencode([{
-    memory = 512
-    memoryReservation = 256
+    memory            = 512
+    memoryReservation = 512
+    cpu               = 256
     ulimits = [
       {
-        name = "nofile",
+        name      = "nofile",
         softLimit = 4096,
         hardLimit = 4096
       },
       {
-        name = "nproc",
+        name      = "nproc",
         softLimit = 2048,
         hardLimit = 4096
       },
       {
-        name = "core",
+        name      = "core",
         softLimit = 0,
         hardLimit = 0
       }
@@ -111,8 +112,8 @@ resource "aws_ecs_task_definition" "frontend-task-definition" {
     logConfiguration = {
       logDriver = "awslogs"
       options = {
-        awslogs-group         = "/ecs/frontend"
-        awslogs-region        = var.REGION
+        awslogs-group  = "/ecs/frontend"
+        awslogs-region = var.REGION
       }
     }
     environment = [
@@ -155,18 +156,38 @@ resource "aws_ecs_task_definition" "backend-task-definition" {
   network_mode             = "bridge"
   requires_compatibilities = ["EC2"]
   cpu                      = "256"
-  memory                   = "256"
+  memory                   = "512"
   task_role_arn            = var.ECS_TASK_ROLE_ARN
   execution_role_arn       = var.ECS_TASK_EXECUTION_ROLE_ARN
 
   container_definitions = jsonencode([{
+    memory            = 512
+    memoryReservation = 512
+    cpu               = 256
+    ulimits = [
+      {
+        name      = "nofile",
+        softLimit = 4096,
+        hardLimit = 4096
+      },
+      {
+        name      = "nproc",
+        softLimit = 2048,
+        hardLimit = 4096
+      },
+      {
+        name      = "core",
+        softLimit = 0,
+        hardLimit = 0
+      }
+    ]
     name  = "backend-task"
     image = "${var.BACKEND_ECR_REPO}:latest"
     logConfiguration = {
       logDriver = "awslogs"
       options = {
-        awslogs-group         = "/ecs/backend"
-        awslogs-region        = var.REGION
+        awslogs-group  = "/ecs/backend"
+        awslogs-region = var.REGION
       }
     }
     environment = [
@@ -274,8 +295,8 @@ resource "aws_ecs_service" "backend-service" {
 
 
 resource "aws_appautoscaling_target" "frontend-app-autoscaling-target" {
-  max_capacity       = 2
-  min_capacity       = 1
+  max_capacity       = length(var.AVAILABILITY_ZONES) * 2
+  min_capacity       = length(var.AVAILABILITY_ZONES)
   resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.frontend-service.name}"
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
@@ -293,14 +314,14 @@ resource "aws_appautoscaling_policy" "frontend_cpu" {
     predefined_metric_specification {
       predefined_metric_type = "ECSServiceAverageCPUUtilization"
     }
-    scale_in_cooldown  = 600
-    scale_out_cooldown = 300
+    scale_in_cooldown  = 180 #Use 600 for production but 180 for dev
+    scale_out_cooldown = 120 #Use 300 for production but 120 for dev
   }
 }
 
 resource "aws_appautoscaling_target" "backend-app-autoscaling-target" {
-  max_capacity       = 2
-  min_capacity       = 1
+  max_capacity       = length(var.AVAILABILITY_ZONES) * 2
+  min_capacity       = length(var.AVAILABILITY_ZONES)
   resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.backend-service.name}"
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
@@ -318,8 +339,8 @@ resource "aws_appautoscaling_policy" "backend_cpu" {
     predefined_metric_specification {
       predefined_metric_type = "ECSServiceAverageCPUUtilization"
     }
-    scale_in_cooldown  = 600
-    scale_out_cooldown = 300
+    scale_in_cooldown  = 180 #Use 600 for production but 180 for dev
+    scale_out_cooldown = 120 #Use 300 for production but 120 for dev
   }
 }
 
@@ -328,13 +349,15 @@ resource "aws_autoscaling_group" "frontend-autoscaling-group" {
     id      = aws_launch_template.frontend-template.id
     version = "$Latest"
   }
-  min_size            = 1
-  max_size            = 2
-  desired_capacity    = 1
+  min_size            = length(var.AVAILABILITY_ZONES)
+  max_size            = length(var.AVAILABILITY_ZONES) * 2
+  desired_capacity    = length(var.AVAILABILITY_ZONES)
   vpc_zone_identifier = var.PUBLIC_SUBNET_IDS
 
   force_delete          = true
   protect_from_scale_in = true
+
+  metrics_granularity = "5Minute"
 
   # Force spread across AZs
   tag {
@@ -355,13 +378,15 @@ resource "aws_autoscaling_group" "backend-autoscaling-group" {
     id      = aws_launch_template.backend-template.id
     version = "$Latest"
   }
-  min_size            = 1
-  max_size            = 2
-  desired_capacity    = 1
+  min_size            = length(var.AVAILABILITY_ZONES)
+  max_size            = length(var.AVAILABILITY_ZONES) * 2
+  desired_capacity    = length(var.AVAILABILITY_ZONES)
   vpc_zone_identifier = var.PRIVATE_SUBNET_IDS
 
   force_delete          = true
   protect_from_scale_in = true
+
+  metrics_granularity = "5Minute"
 
   # Force spread across AZs
   tag {
@@ -381,7 +406,7 @@ resource "aws_autoscaling_policy" "frontend_scale_out" {
   name                   = "frontend-scale-out"
   scaling_adjustment     = 1
   adjustment_type        = "ChangeInCapacity"
-  cooldown               = 300
+  cooldown               = 120 #Use 300 for production but 120 for dev
   autoscaling_group_name = aws_autoscaling_group.frontend-autoscaling-group.name
 }
 
@@ -389,7 +414,7 @@ resource "aws_autoscaling_policy" "frontend_scale_in" {
   name                   = "frontend-scale-in"
   scaling_adjustment     = -1
   adjustment_type        = "ChangeInCapacity"
-  cooldown               = 300
+  cooldown               = 180 #Use 300 for production but 180 for dev
   autoscaling_group_name = aws_autoscaling_group.frontend-autoscaling-group.name
 }
 
@@ -397,7 +422,7 @@ resource "aws_autoscaling_policy" "backend_scale_out" {
   name                   = "backend-scale-out"
   scaling_adjustment     = 1
   adjustment_type        = "ChangeInCapacity"
-  cooldown               = 300
+  cooldown               = 120 #Use 300 for production but 120 for dev
   autoscaling_group_name = aws_autoscaling_group.backend-autoscaling-group.name
 }
 
@@ -405,14 +430,14 @@ resource "aws_autoscaling_policy" "backend_scale_in" {
   name                   = "backend-scale-in"
   scaling_adjustment     = -1
   adjustment_type        = "ChangeInCapacity"
-  cooldown               = 300
+  cooldown               = 180 #Use 300 for production but 180 for dev
   autoscaling_group_name = aws_autoscaling_group.backend-autoscaling-group.name
 }
 
 resource "aws_launch_template" "frontend-template" {
   name          = "frontend-launch-template"
   image_id      = var.EC2_INSTANCE_AMI
-  instance_type = "t3.micro"
+  instance_type = var.EC2_INSTANCE_TYPE
 
   key_name               = var.EC2_KEY_PAIR_NAME
   vpc_security_group_ids = [var.FRONTEND_ECS_SECURITY_GROUP_ID]
@@ -421,7 +446,7 @@ resource "aws_launch_template" "frontend-template" {
     name = var.EC2_INSTANCE_PROFILE_NAME
   }
 
-  user_data = base64encode(templatefile("${path.module}/../../startup.sh.tpl", {
+  user_data = base64encode(templatefile("${path.module}/../../startup_frontend.sh.tpl", {
     ECS_CLUSTER_NAME            = aws_ecs_cluster.main.name
     LOG_FILE                    = "/var/log/user_data.log"
     ECS_CONTAINER_INSTANCE_TAGS = replace(jsonencode({ "AG_GROUP-FRONTEND" = "frontend-ag-group" }), "\"", "\\\"")
@@ -449,7 +474,7 @@ resource "aws_launch_template" "backend-template" {
     name = var.EC2_INSTANCE_PROFILE_NAME
   }
 
-  user_data = base64encode(templatefile("${path.module}/../../startup.sh.tpl", {
+  user_data = base64encode(templatefile("${path.module}/../../startup_backend.sh.tpl", {
     ECS_CLUSTER_NAME            = aws_ecs_cluster.main.name
     LOG_FILE                    = "/var/log/user_data.log"
     ECS_CONTAINER_INSTANCE_TAGS = replace(jsonencode({ "AG_GROUP-BACKEND" = "backend-ag-group" }), "\"", "\\\"")
