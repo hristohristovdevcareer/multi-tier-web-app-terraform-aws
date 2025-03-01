@@ -8,12 +8,13 @@ WORKDIR /app
 COPY ../client/package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci
 
 # Copy the application code
 COPY ../client/ .
 
-# Build the Next.js application
+# Build application
+ENV NEXT_TELEMETRY_DISABLED 1
 RUN npm run build
 
 # Production stage
@@ -27,11 +28,20 @@ COPY --from=build /app/package.json ./
 COPY --from=build /app/next.config.mjs ./next.config.mjs
 COPY --from=build /app/public ./public
 COPY --from=build /app/.next/standalone ./
-COPY --from=build /app/.next/static ./
+COPY --from=build /app/.next/static ./.next/static
 
+# Set environment variables
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
 
-# Expose the port the application will run on
+# Security: non-root user
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+RUN chown -R nextjs:nodejs /app
+USER nextjs
+
+# Expose the port for the application
 EXPOSE 3000
 
-# Start the Next.js server
+# Start Next.js server
 CMD ["node", "server.js"]

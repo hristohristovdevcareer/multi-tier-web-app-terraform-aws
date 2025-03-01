@@ -8,8 +8,8 @@ resource "aws_security_group" "alb" {
 # ALB egress for health checks
 resource "aws_security_group_rule" "alb_egress_healthcheck" {
   type                     = "egress"
-  from_port                = 8080
-  to_port                  = 8080
+  from_port                = 3000
+  to_port                  = 3000
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.frontend_instances.id
   security_group_id        = aws_security_group.alb.id
@@ -41,7 +41,7 @@ resource "aws_security_group_rule" "alb_ingress_https" {
   from_port = 443
   to_port   = 443
   protocol  = "tcp"
-  # Cloudflare IPv4 ranges - you should regularly update these
+  # Cloudflare IPv4 ranges (require regular updates)
   cidr_blocks = [
     "173.245.48.0/20",
     "103.21.244.0/22",
@@ -72,16 +72,6 @@ resource "aws_security_group" "frontend_instances" {
     aws_security_group.alb,
   ]
 }
-
-# # Frontend ECS from ALB
-# resource "aws_security_group_rule" "frontend_from_alb" {
-#   type                     = "ingress"
-#   from_port                = 80
-#   to_port                  = 80
-#   protocol                 = "tcp"
-#   source_security_group_id = aws_security_group.alb.id
-#   security_group_id        = aws_security_group.frontend_instances.id
-# }
 
 # Frontend SSH
 resource "aws_security_group_rule" "frontend_ssh" {

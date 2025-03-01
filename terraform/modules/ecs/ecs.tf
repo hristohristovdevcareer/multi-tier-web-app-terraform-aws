@@ -21,7 +21,7 @@ resource "aws_ecs_cluster" "main" {
   }
 }
 
-# Update the cluster capacity providers association
+# Cluster capacity providers association
 resource "aws_ecs_cluster_capacity_providers" "cluster_capacity" {
   cluster_name = aws_ecs_cluster.main.name
 
@@ -42,7 +42,7 @@ resource "aws_ecs_cluster_capacity_providers" "cluster_capacity" {
   }
 }
 
-# Create the EC2 capacity providers
+# EC2 capacity providers
 resource "aws_ecs_capacity_provider" "frontend_capacity_provider" {
   name = "frontend-capacity-provider"
 
@@ -52,13 +52,14 @@ resource "aws_ecs_capacity_provider" "frontend_capacity_provider" {
       maximum_scaling_step_size = 1
       minimum_scaling_step_size = 1
       status                    = "ENABLED"
-      target_capacity           = 50 #Use 70 in general, but 50 to simplify instance scaling
+      target_capacity           = 85 #Use 70 in general, but 50 to simplify instance scaling
       instance_warmup_period    = 300
     }
     managed_termination_protection = "ENABLED"
   }
 }
 
+# Backend capacity provider
 resource "aws_ecs_capacity_provider" "backend_capacity_provider" {
   name = "backend-capacity-provider"
 
@@ -68,47 +69,36 @@ resource "aws_ecs_capacity_provider" "backend_capacity_provider" {
       maximum_scaling_step_size = 1
       minimum_scaling_step_size = 1
       status                    = "ENABLED"
-      target_capacity           = 50 #Use 70 in general, but 50 to simplify instance scaling
+      target_capacity           = 85 #Use 70 in general, but 50 to simplify instance scaling
       instance_warmup_period    = 300
     }
     managed_termination_protection = "ENABLED"
   }
 }
 
-
 # Frontend Task Definition
 resource "aws_ecs_task_definition" "frontend-task-definition" {
   family                   = "frontend-task"
   network_mode             = "bridge"
   requires_compatibilities = ["EC2"]
-  cpu                      = "256"
-  memory                   = "512"
+  cpu                      = "1024"
+  memory                   = "1536"
   task_role_arn            = var.ECS_TASK_ROLE_ARN
   execution_role_arn       = var.ECS_TASK_EXECUTION_ROLE_ARN
 
   container_definitions = jsonencode([{
-    memory            = 512
-    memoryReservation = 512
-    cpu               = 256
+    memory            = 1536
+    memoryReservation = 1536
+    cpu               = 1024
     ulimits = [
       {
         name      = "nofile",
-        softLimit = 4096,
-        hardLimit = 4096
-      },
-      {
-        name      = "nproc",
-        softLimit = 2048,
-        hardLimit = 4096
-      },
-      {
-        name      = "core",
-        softLimit = 0,
-        hardLimit = 0
+        softLimit = 65536,
+        hardLimit = 65536
       }
     ]
     name  = "frontend-task"
-    image = "${var.BACKEND_ECR_REPO}:latest"
+    image = "${var.FRONTEND_ECR_REPO}:latest"
     logConfiguration = {
       logDriver = "awslogs"
       options = {
@@ -130,6 +120,10 @@ resource "aws_ecs_task_definition" "frontend-task-definition" {
         value = "production"
       },
       {
+        name  = "PORT"
+        value = "3000"
+      },
+      {
         name  = "PROJECT_NAME"
         value = var.PROJECT_NAME
       },
@@ -139,7 +133,7 @@ resource "aws_ecs_task_definition" "frontend-task-definition" {
       }
     ]
     portMappings = [{
-      containerPort = 8080
+      containerPort = 3000
       hostPort      = 0
     }]
     essential = true
@@ -253,7 +247,7 @@ resource "aws_ecs_service" "frontend-service" {
   load_balancer {
     target_group_arn = var.FRONTEND_TARGET_GROUP_ARN
     container_name   = aws_ecs_task_definition.frontend-task-definition.family
-    container_port   = 8080
+    container_port   = 3000
   }
 
   deployment_circuit_breaker {
@@ -294,6 +288,7 @@ resource "aws_ecs_service" "backend-service" {
 }
 
 
+# Frontend autoscaling target
 resource "aws_appautoscaling_target" "frontend-app-autoscaling-target" {
   max_capacity       = length(var.AVAILABILITY_ZONES) * 2
   min_capacity       = length(var.AVAILABILITY_ZONES)
@@ -302,6 +297,7 @@ resource "aws_appautoscaling_target" "frontend-app-autoscaling-target" {
   service_namespace  = "ecs"
 }
 
+# Frontend CPU scaling policy
 resource "aws_appautoscaling_policy" "frontend_cpu" {
   name               = "frontend-cpu-scaling"
   policy_type        = "TargetTrackingScaling"
@@ -310,15 +306,16 @@ resource "aws_appautoscaling_policy" "frontend_cpu" {
   service_namespace  = aws_appautoscaling_target.frontend-app-autoscaling-target.service_namespace
 
   target_tracking_scaling_policy_configuration {
-    target_value = 70.0
+    target_value = 85.0
     predefined_metric_specification {
       predefined_metric_type = "ECSServiceAverageCPUUtilization"
     }
-    scale_in_cooldown  = 180 #Use 600 for production but 180 for dev
-    scale_out_cooldown = 120 #Use 300 for production but 120 for dev
+    scale_in_cooldown  = 300 #Use 600 for production but 180 for dev
+    scale_out_cooldown = 180 #Use 300 for production but 120 for dev
   }
 }
 
+# Backend autoscaling target
 resource "aws_appautoscaling_target" "backend-app-autoscaling-target" {
   max_capacity       = length(var.AVAILABILITY_ZONES) * 2
   min_capacity       = length(var.AVAILABILITY_ZONES)
@@ -327,6 +324,7 @@ resource "aws_appautoscaling_target" "backend-app-autoscaling-target" {
   service_namespace  = "ecs"
 }
 
+# Backend CPU scaling policy
 resource "aws_appautoscaling_policy" "backend_cpu" {
   name               = "backend-cpu-scaling"
   policy_type        = "TargetTrackingScaling"
@@ -335,15 +333,16 @@ resource "aws_appautoscaling_policy" "backend_cpu" {
   service_namespace  = aws_appautoscaling_target.backend-app-autoscaling-target.service_namespace
 
   target_tracking_scaling_policy_configuration {
-    target_value = 70.0
+    target_value = 85.0
     predefined_metric_specification {
       predefined_metric_type = "ECSServiceAverageCPUUtilization"
     }
-    scale_in_cooldown  = 180 #Use 600 for production but 180 for dev
-    scale_out_cooldown = 120 #Use 300 for production but 120 for dev
+    scale_in_cooldown  = 300 #Use 600 for production but 180 for dev
+    scale_out_cooldown = 180 #Use 300 for production but 120 for dev
   }
 }
 
+# Frontend autoscaling group
 resource "aws_autoscaling_group" "frontend-autoscaling-group" {
   launch_template {
     id      = aws_launch_template.frontend-template.id
@@ -373,6 +372,7 @@ resource "aws_autoscaling_group" "frontend-autoscaling-group" {
   }
 }
 
+# Backend autoscaling group
 resource "aws_autoscaling_group" "backend-autoscaling-group" {
   launch_template {
     id      = aws_launch_template.backend-template.id
@@ -402,6 +402,7 @@ resource "aws_autoscaling_group" "backend-autoscaling-group" {
   }
 }
 
+# Frontend scale out policy
 resource "aws_autoscaling_policy" "frontend_scale_out" {
   name                   = "frontend-scale-out"
   scaling_adjustment     = 1
@@ -410,6 +411,7 @@ resource "aws_autoscaling_policy" "frontend_scale_out" {
   autoscaling_group_name = aws_autoscaling_group.frontend-autoscaling-group.name
 }
 
+# Frontend scale in policy
 resource "aws_autoscaling_policy" "frontend_scale_in" {
   name                   = "frontend-scale-in"
   scaling_adjustment     = -1
@@ -418,6 +420,7 @@ resource "aws_autoscaling_policy" "frontend_scale_in" {
   autoscaling_group_name = aws_autoscaling_group.frontend-autoscaling-group.name
 }
 
+# Backend scale out policy
 resource "aws_autoscaling_policy" "backend_scale_out" {
   name                   = "backend-scale-out"
   scaling_adjustment     = 1
@@ -426,6 +429,7 @@ resource "aws_autoscaling_policy" "backend_scale_out" {
   autoscaling_group_name = aws_autoscaling_group.backend-autoscaling-group.name
 }
 
+# Backend scale in policy
 resource "aws_autoscaling_policy" "backend_scale_in" {
   name                   = "backend-scale-in"
   scaling_adjustment     = -1
@@ -434,10 +438,11 @@ resource "aws_autoscaling_policy" "backend_scale_in" {
   autoscaling_group_name = aws_autoscaling_group.backend-autoscaling-group.name
 }
 
+# Frontend launch template
 resource "aws_launch_template" "frontend-template" {
   name          = "frontend-launch-template"
   image_id      = var.EC2_INSTANCE_AMI
-  instance_type = var.EC2_INSTANCE_TYPE
+  instance_type = "t3.small"
 
   key_name               = var.EC2_KEY_PAIR_NAME
   vpc_security_group_ids = [var.FRONTEND_ECS_SECURITY_GROUP_ID]
@@ -461,6 +466,7 @@ resource "aws_launch_template" "frontend-template" {
   }
 }
 
+# Backend launch template
 resource "aws_launch_template" "backend-template" {
   name          = "backend-launch-template"
   image_id      = var.EC2_INSTANCE_AMI
@@ -489,23 +495,25 @@ resource "aws_launch_template" "backend-template" {
   }
 }
 
+# Frontend log group
 resource "aws_cloudwatch_log_group" "frontend_log_group" {
   name              = "/ecs/frontend"
   retention_in_days = 1
 }
 
+# Backend log group
 resource "aws_cloudwatch_log_group" "backend_log_group" {
   name              = "/ecs/backend"
   retention_in_days = 1
 }
 
-# Log Group with retention to manage costs
+# ECS agent log group
 resource "aws_cloudwatch_log_group" "ecs_agent" {
   name              = "/ecs/ecs-agent"
   retention_in_days = 1
 }
 
-# Basic Metric Alarm for ECS Agent
+# ECS agent connected metric alarm
 resource "aws_cloudwatch_metric_alarm" "ecs_agent_connected" {
   alarm_name          = "ecs-agent-connected"
   comparison_operator = "LessThanThreshold"
@@ -534,6 +542,7 @@ resource "aws_cloudwatch_log_metric_filter" "ecs_errors" {
   }
 }
 
+# ECS errors dashboard
 resource "aws_cloudwatch_dashboard" "ecs" {
   dashboard_name = "ecs-errors"
   dashboard_body = jsonencode({

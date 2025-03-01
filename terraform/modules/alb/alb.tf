@@ -33,15 +33,16 @@ resource "aws_lb_target_group" "frontend_target_group" {
   target_type = "instance"
 
   health_check {
-    path                = "/health"
+    path                = "/api/health"
     port                = "traffic-port"
     healthy_threshold   = 2
     unhealthy_threshold = 3
     timeout             = 5
     interval            = 30
+    matcher             = "200-299"
   }
 
-  # Enable using dynamic port mapping
+  # Enable dynamic port mapping
   stickiness {
     type    = "lb_cookie"
     enabled = false
@@ -71,7 +72,7 @@ resource "aws_lb_listener" "frontend_https" {
   }
 }
 
-# Modify the HTTP listener to redirect to HTTPS
+# HTTP listener to redirect to HTTPS
 resource "aws_lb_listener" "frontend_http" {
   load_balancer_arn = aws_lb.main.arn
   port              = "80"
@@ -107,7 +108,7 @@ resource "cloudflare_record" "alb" {
   name    = var.DOMAIN_NAME
   content = aws_lb.main.dns_name
   type    = "CNAME"
-  proxied = true # This enables Cloudflare's proxy features
+  proxied = true # Enable Cloudflare's proxy features
 }
 
 # ACM Certificate Validation
