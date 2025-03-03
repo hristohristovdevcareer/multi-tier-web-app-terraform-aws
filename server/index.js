@@ -1,11 +1,17 @@
 const express = require("express");
-const axios = require("axios");
+const cors = require("cors");
 const app = express();
+
+app.use(cors());
+app.use(express.json());
 
 async function getInstanceId() {
   try {
-    const response = await axios.get('http://169.254.169.254/latest/meta-data/instance-id');
-    return response.data;
+    const response = await fetch('http://169.254.169.254/latest/meta-data/instance-id');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.text();
   } catch (error) {
     console.error('Error fetching instance ID:', error.message);
     return 'unknown-instance';

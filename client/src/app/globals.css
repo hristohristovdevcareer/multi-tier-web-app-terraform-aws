@@ -19,3 +19,40 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.inner {
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+h1 {
+  @apply text-3xl font-bold;
+}
+
+p {
+  @apply text-base;
+}
+
+h1,
+h2,
+h3 {
+  @apply mb-5
+}
+
+p {
+  @apply mb-3
+}
+
+input {
+  @apply border-2 bg-slate-300 text-black rounded-md p-2 outline-none sm:w-full;
+}
+
+button {
+  @apply rounded-md p-2 px-5 transition-all duration-300;
+}
+
+input::placeholder {
+  color: #5c5c5c;
+}
