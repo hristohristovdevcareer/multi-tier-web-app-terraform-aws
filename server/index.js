@@ -2,7 +2,11 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: '*',  // In production, you should specify your frontend domain
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 async function getInstanceId() {
@@ -13,7 +17,7 @@ async function getInstanceId() {
     }
     return await response.text();
   } catch (error) {
-    console.error('Error fetching instance ID:', error.message);
+    console.log('Error fetching instance ID:', error.message);
     return 'unknown-instance';
   }
 }
@@ -56,14 +60,18 @@ app.post('/api/items', (req, res) => {
 
 // READ - Get all items
 app.get('/api/items', (req, res) => {
-  res.json(items);
+  if (items.length === 0) {
+    res.status(200).json({ items: [] });
+  } else {
+    res.json({ items: items });
+  }
 });
 
 // READ - Get single item by ID
 app.get('/api/items/:id', (req, res) => {
   const item = items.find(item => item.id === parseInt(req.params.id));
   if (!item) {
-    return res.status(404).json({ error: 'Item not found' });
+    return res.status(200).json({ error: 'Item not found' });
   }
   res.json(item);
 });
@@ -72,7 +80,7 @@ app.get('/api/items/:id', (req, res) => {
 app.put('/api/items/:id', (req, res) => {
   const itemIndex = items.findIndex(item => item.id === parseInt(req.params.id));
   if (itemIndex === -1) {
-    return res.status(404).json({ error: 'Item not found' });
+    return res.status(200).json({ error: 'Item not found' });
   }
 
   items[itemIndex] = {
@@ -89,7 +97,7 @@ app.put('/api/items/:id', (req, res) => {
 app.delete('/api/items/:id', (req, res) => {
   const itemIndex = items.findIndex(item => item.id === parseInt(req.params.id));
   if (itemIndex === -1) {
-    return res.status(404).json({ error: 'Item not found' });
+    return res.status(200).json({ error: 'Item not found' });
   }
 
   const deletedItem = items.splice(itemIndex, 1)[0];
