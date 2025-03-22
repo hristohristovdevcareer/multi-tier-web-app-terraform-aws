@@ -75,19 +75,19 @@ Hashicorp Vault - A standardised tool for secret management, security, and colla
 6. **Cloudflare** - Experience has shown that Cloudflare's DNS services are quite beneficial. Offers a free plan for certain services when a domain is bought. The extra benefits in the free plan include SSL certificates, load balancing, and free DDOS protection.
 
 ### Services: ###
-1. **AWS Compute**
-    1.1. EC2 Instances
-    1.2. ECS (Elastic Container Service)
-    1.3. ECR (Elastic Container Registry)
-2. **AWS Networking**
-    2.1. VPC
-    2.2. ALB (Application Load Balancer)
-    2.3. Custom NAT
-    2.4. Security Groups
-3. **AWS Storage and Database**
-    3.1. RDS (PostgreSQL)
-    3.2. S3
-    3.3. DynamoDB
+1. **AWS Compute** \
+    1.1. EC2 Instances \
+    1.2. ECS (Elastic Container Service) \
+    1.3. ECR (Elastic Container Registry) \
+2. **AWS Networking** \
+    2.1. VPC \
+    2.2. ALB (Application Load Balancer) \
+    2.3. Custom NAT \
+    2.4. Security Groups \
+3. **AWS Storage and Database** \
+    3.1. RDS (PostgreSQL) \
+    3.2. S3 \
+    3.3. DynamoDB \
 4. **AWS Management and Monitoring**
     4.1. Cloudwatch
     4.2. IAM
@@ -105,72 +105,72 @@ Further context: Project goals evaluation: The success of the project can be eva
 For **scalability**, current architecture is simplified and utilises only horizontal scaling - a cost-effective approach that allows scaling without downtime. This means multiple tasks being created and/or destroyed on instances, while instances can be provisioned, or destroyed, depending whether the current ones can accommodate the required amount of tasks. Vertical scaling for the different parts of the infrastructure can be done in various ways, though it would require more complex changes. For tasks, it would require a significant architectural shift to utilize Lambda functions, as they provide better resource allocation flexibility than container-based tasks. For instances, this can be automated by setting up the Auto Scaling Groups to use mixed instances - a feature that allows different instance types in the same ASG, providing both performance and cost benefits. This approach suits the current architecture well. Alternatively, EC2 Fleet with Spot and on-demand instances could be implemented, offering a balance between cost savings and reliability. In the latter approach, when instances are being scaled, they are simply replaced with more powerful ones, instead of creating new ones, though this may involve brief downtimes during transitions. The implementation of rolling deployments through CI/CD will further complement this scalability approach, allowing for controlled instance updates without impacting the overall system capacity.
 
 **Cost** Optimisations
-1. **Infrastructure Choices:**
-    1.1. Custom NAT Gateway implementation instead of AWS managed NAT
-    1.2. Strategic instance type selection (t2.micro for general use, t3.micro for DB)
-    1.3. Frontend utilisation of t3.small due to Next.js requirements
-    1.4. Auto-scaloing constraints to prevent over-provisioning
+1. **Infrastructure Choices:** \
+    1.1. Custom NAT Gateway implementation instead of AWS managed NAT \
+    1.2. Strategic instance type selection (t2.micro for general use, t3.micro for DB) \
+    1.3. Frontend utilisation of t3.small due to Next.js requirements \
+    1.4. Auto-scaloing constraints to prevent over-provisioning \
     1.5. Multi-AZ deployment only where necessary
-2. **Development and Testing:**
-    2.1. Development environment simulation locally
-    2.2. Docker utilization for local testing
-    2.3. Testing on cheaper instance types before production
+2. **Development and Testing:** \
+    2.1. Development environment simulation locally \
+    2.2. Docker utilization for local testing \
+    2.3. Testing on cheaper instance types before production \
     2.4. Local Vault server for development
-3. **Resource Management:**
-    3.1. Instance scaling restrictions based on actual needs
-    3.2. Auto-scaling group limitations to precent runaway costs
-    3.3. Efficient container resource allocatiomn
+3. **Resource Management:** \
+    3.1. Instance scaling restrictions based on actual needs \
+    3.2. Auto-scaling group limitations to precent runaway costs \
+    3.3. Efficient container resource allocatiomn \
     3.4. Proper instance shutdown procedures
-4. **Service Selection:**
-    4.1. Automated setup of certain custom resources instead of managed services 
-    4.2. Cloudflare free tier for DNS and DDoS protection
-    4.3. Strategic region selection for reduced data transfer costs
+4. **Service Selection:** \
+    4.1. Automated setup of certain custom resources instead of managed services \
+    4.2. Cloudflare free tier for DNS and DDoS protection \
+    4.3. Strategic region selection for reduced data transfer costs \
     4.4. S3 with proper lifecycle policies
-5. **Architecture Decisions:**
-    5.1. Horizontal scaling for cost-effective resource utilization
-    5.2. Microservices for independent scaling
-    5.3. Private subnet usage for reduced data transfer costs
+5. **Architecture Decisions:** \
+    5.1. Horizontal scaling for cost-effective resource utilization \
+    5.2. Microservices for independent scaling \
+    5.3. Private subnet usage for reduced data transfer costs \
     5.4. Load balancer optimization for traffic distribution
 
 
 **Availability** is achieved through multiple AZ's, the overall microservice architecture, auto-scaling, and load-balancing. Multi AZ ensures resiliency against regional failures, while the architecture is resistant to single-point breakdowns. Auto-scaling is responsible for keeping the infrastructure running smooth and efficiently and avoiding any performance-related issues. Load-balancing works in sync with AZ's to distribute traffic and send it to only reachable, healthy end-points. This availability strategy will be further enhanced by rolling deployments in the CI/CD pipeline, ensuring zero-downtime updates by gradually replacing instances and maintaining service continuity. Internal communication with the server due to it being located in a private subnets aids with enhanced security, lower latency, and better failover processes.
 
 **Security** is tackled on various levels of the infrastructure.
-1. **Network Security:**
-    1.1. VPC isolation with public and private subnets
-    1.2. Protocol restrictions (HTTPS, HTTP, SSH)
-    1.3. Private subnet positioning for critical resources
+1. **Network Security:** \
+    1.1. VPC isolation with public and private subnets \
+    1.2. Protocol restrictions (HTTPS, HTTP, SSH) \
+    1.3. Private subnet positioning for critical resources \
     1.4. Custom NAT for controlled outbound traffic
-2. **Access Control and Authentication:**
-    2.1. Passwordless SSH with key-pairs
-    2.2. Vault for secrets management
-    2.3. EC2 instance prodiles
+2. **Access Control and Authentication:** \
+    2.1. Passwordless SSH with key-pairs \
+    2.2. Vault for secrets management \
+    2.3. EC2 instance prodiles \
     2.4. IAM roles and policies
-3. **Application Security:**
-    3.1. HTTPS enforcement
-    3.2. Environment variable management
-    3.3. Secure application configurations
+3. **Application Security:** \
+    3.1. HTTPS enforcement \
+    3.2. Environment variable management \
+    3.3. Secure application configurations \
     3.4. Container isolation
-4. **Data Security:**
-    4.1. Databases in private subnets
-    4.2. Secrets encryption through Vault
-    4.3. S3 encryption
-    4.4. Terraform state encryption
-5. **Infrastructure Security:**
-    5.1. Infrastructure as Code (version control)
-    5.2. Resource tagging
-    5.3. Least privilege principle
-    5.4. Automated security configurations
+4. **Data Security:** \
+    4.1. Databases in private subnets \
+    4.2. Secrets encryption through Vault \
+    4.3. S3 encryption \
+    4.4. Terraform state encryption 
+5. **Infrastructure Security:** \
+    5.1. Infrastructure as Code (version control) \
+    5.2. Resource tagging \
+    5.3. Least privilege principle \
+    5.4. Automated security configurations \
     5.5. Rolling deployments with automated rollback capabilities
-6. **Availability Security:**
-    6.1. Auto-scaling mechanisms
-    6.2. Multi-AZ deployment
-    6.3. DDoS protection (cloudflare)
+6. **Availability Security:** \
+    6.1. Auto-scaling mechanisms \
+    6.2. Multi-AZ deployment \
+    6.3. DDoS protection (cloudflare) \
     6.4. Load balancing
-7. **Monitoring and Compliance:**
-    7.1. Audit trails
-    7.2. Resource monitoring
-    7.3. Health checks
+7. **Monitoring and Compliance:** \
+    7.1. Audit trails \
+    7.2. Resource monitoring \
+    7.3. Health checks \
     7.4. CloudWatch logging
 
 **Performance** is achieved through multiple architectural decisions and service implementations. The microservices architecture allows for independent optimization of each component, while the strategic positioning of resources enhances response times. Frontend services in public subnets maintain direct internet connectivity, while backend services in private subnets benefit from reduced network hops and optimized internal AWS routing. Load balancing across multiple AZs ensures efficient request distribution and reduced latency. The implementation of containerization through ECS enables precise resource allocation and improved resource utilization. Database performance is maintained through proper instance sizing and network proximity in the private subnet, while CloudWatch monitoring allows for continuous performance tracking and optimization opportunities. The utilization of Cloudflare's CDN capabilities further enhances content delivery performance for end-users across different geographical locations.
