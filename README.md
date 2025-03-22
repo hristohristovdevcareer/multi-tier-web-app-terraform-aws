@@ -39,14 +39,14 @@ While numerous enhancements could be implemented (such as more sophisticated con
 5. Set vault address to the env variables and re-run environment variable setup script (set-env-vars.sh)
 
 Variables that need to be set in vault:
-1. Group - ec2_ssh
-    1.1. var - ec2_ssh_public_key
+1. Group - ec2_ssh \
+    1.1. var - ec2_ssh_public_key \
     1.2. var - nat_ssh_private_key
-2. Group - gitlab_keys
-    1.1. var - gitlab_private_key
+2. Group - gitlab_keys \
+    1.1. var - gitlab_private_key \
     1.2. var - gitlab_public_key
-3. Group - db_credentials
-    1.1. var - username
+3. Group - db_credentials \
+    1.1. var - username \
     1.2. var - password
 
 ### Automated Setup ###
