@@ -8,12 +8,18 @@ services:
       args:
         PROJECT_NAME: ${PROJECT_NAME}
         IMAGE_TAG: ${IMAGE_TAG}
+        NEXT_PUBLIC_SERVER_URL: ${NEXT_PUBLIC_SERVER_URL}
+        NODE_EXTRA_CA_CERTS: ${NODE_EXTRA_CA_CERTS}
+        AWS_REGION: ${AWS_REGION}
     image: ${PROJECT_NAME}-web-app:${IMAGE_TAG} # Specify the image with a variable tag
     ports:
       - "3000:3000" # Expose the application port
     environment:
-      - SERVER_URL=${SERVER_URL}
+      - NEXT_PUBLIC_SERVER_URL=${NEXT_PUBLIC_SERVER_URL}
       - NODE_ENV=production
+      - PROJECT_NAME=${PROJECT_NAME}
+      - AWS_REGION=${AWS_REGION}
+      - NODE_EXTRA_CA_CERTS=${NODE_EXTRA_CA_CERTS}
     networks:
       - app-network
 
@@ -33,6 +39,7 @@ services:
     environment:
       - NODE_ENV=production
       - PROJECT_NAME=${PROJECT_NAME}
+      - CLIENT_URL=${CLIENT_URL}
     #   - DB_HOST=${DB_HOST}
     #   - DB_NAME=${DB_NAME}
     #   - DB_USER=${DB_USER}

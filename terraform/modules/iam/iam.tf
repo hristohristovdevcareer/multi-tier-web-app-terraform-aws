@@ -193,6 +193,10 @@ resource "aws_iam_role_policy" "ecs_task_role_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents",
           "logs:DescribeLogStreams",
+
+          # SSM permissions
+          "ssm:GetParameters",
+          "ssm:GetParameter"
         ],
         Resource = "*"
       }

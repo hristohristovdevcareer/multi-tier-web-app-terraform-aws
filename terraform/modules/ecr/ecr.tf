@@ -1,4 +1,3 @@
-
 # ECR Repository for the Web App (Frontend)
 resource "aws_ecr_repository" "web_app_repository" {
   name = "${var.PROJECT_NAME}-web-app-docker"
@@ -52,22 +51,27 @@ resource "null_resource" "docker_build_and_push" {
   }
 
   provisioner "local-exec" {
-    environment = {
-      PROJECT_NAME = var.PROJECT_NAME
-      IMAGE_TAG    = var.IMAGE_TAG
-      # DB_HOST      = var.DB_HOST
-      # DB_NAME      = var.DB_NAME
-      # DB_USER      = var.DB_USER
-      # DB_PASSWORD  = var.DB_PASSWORD
-    }
-
     command = <<EOT
-      #Need variables here
-      docker-compose -f ${each.value.docker_compose} build 
+      # Export environment variables for docker-compose
+      export PROJECT_NAME="${var.PROJECT_NAME}"
+      export IMAGE_TAG="${var.IMAGE_TAG}"
+      export NEXT_PUBLIC_SERVER_URL="${var.NEXT_PUBLIC_SERVER_URL}"
+      export AWS_REGION="${var.AWS_REGION}"
+      export NODE_EXTRA_CA_CERTS="${var.NODE_EXTRA_CA_CERTS}"
 
-      aws ecr get-login-password --region ${var.REGION} | \
+      # Build with both build args and environment variables
+      docker compose -f ${each.value.docker_compose} build \
+        --build-arg NEXT_PUBLIC_SERVER_URL="${var.NEXT_PUBLIC_SERVER_URL}" \
+        --build-arg PROJECT_NAME="${var.PROJECT_NAME}" \
+        --build-arg IMAGE_TAG="${var.IMAGE_TAG}" \
+        --build-arg AWS_REGION="${var.AWS_REGION}" \
+        --build-arg NODE_EXTRA_CA_CERTS="${var.NODE_EXTRA_CA_CERTS}"
+
+      # Login to ECR
+      aws ecr get-login-password --region ${var.AWS_REGION} | \
       docker login --username AWS --password-stdin ${each.value.repo_url}
 
+      # Tag and push
       docker tag ${each.value.project_name}:${var.IMAGE_TAG} ${each.value.repo_url}:${var.IMAGE_TAG}
       docker push ${each.value.repo_url}:${var.IMAGE_TAG}
     EOT

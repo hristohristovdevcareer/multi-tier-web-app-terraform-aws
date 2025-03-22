@@ -32,3 +32,14 @@ variable "CLOUDFLARE_API_TOKEN" {
   description = "Cloudflare API token"
   type        = string
 }
+
+variable "BACKEND_ALB_SECURITY_GROUP_ID" {
+  description = "Backend Security Group ID"
+  type        = string
+}
+
+variable "INTERNAL_SERVICE_NAME" {
+  description = "Internal service name"
+  type        = string
+  default     = "backend.internal.service"
+}

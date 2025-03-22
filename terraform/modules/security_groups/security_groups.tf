@@ -146,7 +146,7 @@ resource "aws_security_group" "backend_instances" {
   ]
 }
 
-# Allow frontend to access container port 8080 on backend instances
+# Allow frontend to access container 
 resource "aws_security_group_rule" "backend_from_frontend_app_port" {
   type                     = "ingress"
   from_port                = 32768
@@ -315,4 +315,84 @@ resource "aws_security_group_rule" "nat_to_internet" {
   protocol          = "-1"
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = aws_security_group.nat.id
+}
+
+
+#####################################################
+
+# Backend ALB Security Group
+resource "aws_security_group" "backend_alb" {
+  name        = "backend-alb-sg"
+  description = "Security group for Backend ALB"
+  vpc_id      = var.VPC
+}
+
+# Allow frontend instances to receive traffic from backend ALB
+resource "aws_security_group_rule" "frontend_from_backend_alb" {
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.backend_alb.id
+  security_group_id        = aws_security_group.frontend_instances.id
+}
+
+# Allow backend ALB to send traffic to frontend instances
+resource "aws_security_group_rule" "backend_alb_to_frontend" {
+  type                     = "egress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.frontend_instances.id
+  security_group_id        = aws_security_group.backend_alb.id
+}
+
+# Allow frontend to access backend ALB (via Route 53 DNS)
+resource "aws_security_group_rule" "frontend_to_backend_alb" {
+  type                     = "egress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.backend_alb.id
+  security_group_id        = aws_security_group.frontend_instances.id
+}
+
+# Allow backend ALB to receive traffic from frontend
+resource "aws_security_group_rule" "backend_alb_from_frontend" {
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.frontend_instances.id
+  security_group_id        = aws_security_group.backend_alb.id
+}
+
+# Allow backend ALB to send traffic to dynamic ports (for health checks)
+resource "aws_security_group_rule" "backend_alb_to_backend_dynamic" {
+  type                     = "egress"
+  from_port                = 32768
+  to_port                  = 65535
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.backend_instances.id
+  security_group_id        = aws_security_group.backend_alb.id
+}
+
+# Allow backend instances to receive traffic on dynamic ports from backend ALB
+resource "aws_security_group_rule" "backend_from_backend_alb_dynamic" {
+  type                     = "ingress"
+  from_port                = 32768
+  to_port                  = 65535
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.backend_alb.id
+  security_group_id        = aws_security_group.backend_instances.id
+}
+
+# Allow backend ALB to receive traffic from backend instances on dynamic ports
+resource "aws_security_group_rule" "backend_alb_from_backend_dynamic" {
+  type                     = "ingress"
+  from_port                = 32768
+  to_port                  = 65535
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.backend_instances.id
+  security_group_id        = aws_security_group.backend_alb.id
 }

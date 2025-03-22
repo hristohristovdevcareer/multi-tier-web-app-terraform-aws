@@ -13,6 +13,11 @@ variable "FRONTEND_TARGET_GROUP_ARN" {
   type        = string
 }
 
+variable "BACKEND_TARGET_GROUP_ARN" {
+  description = "Target Group ARN"
+  type        = string
+}
+
 variable "REGION" {
   description = "AWS Region"
   type        = string
@@ -55,11 +60,6 @@ variable "DB_USER" {
 
 variable "DB_PASSWORD" {
   description = "DB Password"
-  type        = string
-}
-
-variable "SERVER_URL" {
-  description = "Server URL"
   type        = string
 }
 
@@ -129,3 +129,17 @@ variable "AVAILABILITY_ZONES" {
   type        = list(string)
 }
 
+variable "VPC" {
+  description = "VPC"
+  type        = string
+}
+
+variable "INTERNAL_SERVICE_NAME" {
+  description = "Internal Service Name"
+  type        = string
+}
+
+variable "BACKEND_ALB_DNS_NAME" {
+  description = "Backend ALB DNS Name"
+  type        = string
+}

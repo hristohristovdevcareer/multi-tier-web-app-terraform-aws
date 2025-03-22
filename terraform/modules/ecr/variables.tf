@@ -3,7 +3,7 @@ variable "PROJECT_NAME" {
   type        = string
 }
 
-variable "REGION" {
+variable "AWS_REGION" {
   description = "Region"
   type        = string
 }
@@ -35,5 +35,15 @@ variable "DB_PASSWORD" {
 
 variable "IMAGE_TAG" {
   description = "Image tag"
+  type        = string
+}
+
+variable "NEXT_PUBLIC_SERVER_URL" {
+  description = "Next Public Server URL"
+  type        = string
+}
+
+variable "NODE_EXTRA_CA_CERTS" {
+  description = "Node Extra CA Certs"
   type        = string
 }

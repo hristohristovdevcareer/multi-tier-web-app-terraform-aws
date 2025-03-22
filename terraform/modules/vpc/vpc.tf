@@ -1,7 +1,11 @@
 # VPC for the web app
 resource "aws_vpc" "main" {
   cidr_block = var.CIDR_VPC
-  tags       = { Name = "main-vpc" }
+
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  tags = { Name = "main-vpc" }
 }
 
 # Internet Gateway for the VPC

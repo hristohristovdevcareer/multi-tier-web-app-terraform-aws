@@ -17,3 +17,7 @@ output "frontend_instances_security_group" {
 output "nat_sg" {
   value = aws_security_group.nat.id
 }
+
+output "backend_alb_security_group" {
+  value = aws_security_group.backend_alb.id
+}
