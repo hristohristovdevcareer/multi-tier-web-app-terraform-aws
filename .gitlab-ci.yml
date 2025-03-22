@@ -8,14 +8,18 @@
 #   ECS_CLUSTER_NAME: $ECS_CLUSTER_NAME
 #   FRONTEND_SERVICE_NAME: $FRONTEND_SERVICE_NAME
 #   BACKEND_SERVICE_NAME: $BACKEND_SERVICE_NAME
-#   AWS_REGION: $AWS_REGION # Your AWS region
-#   FRONTEND_IMAGE_TAG: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-web-app:${CI_COMMIT_TAG:-latest}"
-#   BACKEND_IMAGE_TAG: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-server:${CI_COMMIT_TAG:-latest}"
+#   AWS_REGION: $AWS_REGION
+#   FRONTEND_IMAGE_TAG: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-web-app-docker:${CI_COMMIT_SHA}"
+#   BACKEND_IMAGE_TAG: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-server-docker:${CI_COMMIT_SHA}"
 
 # # Build and Push Frontend Image
 # build-frontend:
 #   stage: build
+#   image: docker:20.10.16
+#   services:
+#     - docker:20.10.16-dind
 #   script:
+#     - apk add --no-cache aws-cli
 #     - aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 #     - docker build -t ${FRONTEND_IMAGE_TAG} -f client/web-app.Dockerfile ./client
 #     - docker push ${FRONTEND_IMAGE_TAG}
@@ -26,7 +30,11 @@
 # # Build and Push Backend Image
 # build-backend:
 #   stage: build
+#   image: docker:20.10.16
+#   services:
+#     - docker:20.10.16-dind
 #   script:
+#     - apk add --no-cache aws-cli
 #     - aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 #     - docker build -t ${BACKEND_IMAGE_TAG} -f server/server.Dockerfile ./server
 #     - docker push ${BACKEND_IMAGE_TAG}
@@ -37,11 +45,9 @@
 # # Deploy Frontend to ECS
 # deploy-frontend:
 #   stage: deploy
+#   image: amazon/aws-cli
 #   script:
-#     - aws ecs update-service \
-#         --cluster ${ECS_CLUSTER_NAME} \
-#         --service ${FRONTEND_SERVICE_NAME} \
-#         --force-new-deployment
+#     - aws ecs update-service --cluster ${ECS_CLUSTER_NAME} --service ${FRONTEND_SERVICE_NAME} --force-new-deployment
 #   environment:
 #     name: staging
 #   rules:
@@ -51,11 +57,9 @@
 # # Deploy Backend to ECS
 # deploy-backend:
 #   stage: deploy
+#   image: amazon/aws-cli
 #   script:
-#     - aws ecs update-service \
-#         --cluster ${ECS_CLUSTER_NAME} \
-#         --service ${BACKEND_SERVICE_NAME} \
-#         --force-new-deployment
+#     - aws ecs update-service --cluster ${ECS_CLUSTER_NAME} --service ${BACKEND_SERVICE_NAME} --force-new-deployment
 #   environment:
 #     name: staging
 #   rules:
