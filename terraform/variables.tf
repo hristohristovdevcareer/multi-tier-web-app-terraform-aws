@@ -66,29 +66,6 @@ variable "BRANCH_NAME" {
   type        = string
 }
 
-variable "REPO_URL" {
-  description = "Project repo url"
-  type        = string
-}
-
-# variable "GITLAB_PRIVATE_KEY" {
-#   description = "Private key to connect to gitlab through ssh"
-#   type        = string
-#   sensitive   = true
-# }
-
-# variable "GITLAB_PUBLIC_KEY" {
-#   description = "Private key to connect to gitlab through ssh"
-#   type        = string
-#   sensitive   = true
-# }
-
-# variable "SSH_EC2" {
-#   description = "SSH key-pair"
-#   type        = string
-#   sensitive   = true
-# }
-
 variable "REGION" {
   description = "Region to host the infrastructure"
   type        = string
@@ -139,12 +116,22 @@ variable "DOMAIN_NAME" {
   type        = string
 }
 
-variable "CLOUDFLARE_ZONE_ID" {
-  description = "Cloudflare zone ID"
+variable "VAULT_TOKEN" {
+  description = "Vault token"
   type        = string
 }
 
 variable "CLOUDFLARE_API_TOKEN" {
   description = "Cloudflare API token"
+  type        = string
+}
+
+variable "CLOUDFLARE_ZONE_ID" {
+  description = "Cloudflare zone id"
+  type        = string
+}
+
+variable "INTERNAL_SERVICE_NAME" {
+  description = "Internal service name"
   type        = string
 }

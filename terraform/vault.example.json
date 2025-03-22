@@ -1,0 +1,10 @@
+{
+    "GITLAB_PUBLIC_KEY": "",
+    "GITLAB_PRIVATE_KEY": "",
+    "SSH_EC2_KEY": "",
+    "SSH_EC2_NAT_PVT": "",
+    "CLOUDFLARE_API_TOKEN": "",
+    "CLOUDFLARE_ZONE_ID": "",
+    "username": "",
+    "password": ""
+}

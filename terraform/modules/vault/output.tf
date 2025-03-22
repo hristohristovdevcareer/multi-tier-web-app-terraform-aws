@@ -1,14 +1,19 @@
-output "db_credentials_backup" {
-  description = "Database credentials backup"
-  value       = vault_generic_secret.db_credentials_backup
+output "db_credentials" {
+  description = "Database credentials"
+  value       = vault_generic_secret.db_credentials
 }
 
-output "gitlab_keys_backup" {
-  description = "GitLab keys backup"
-  value       = vault_generic_secret.gitlab_keys_backup
+output "gitlab_keys" {
+  description = "GitLab keys"
+  value       = vault_generic_secret.gitlab_keys
 }
 
-output "ec2_ssh_backup" {
-  description = "EC2 SSH keys backup"
-  value       = vault_generic_secret.ec2_ssh_backup
+output "ec2_ssh" {
+  description = "EC2 SSH keys"
+  value       = vault_generic_secret.ec2_ssh
+}
+
+output "cloudflare" {
+  description = "Cloudflare keys"
+  value       = vault_generic_secret.cloudflare
 }
