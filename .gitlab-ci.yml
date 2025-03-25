@@ -5,51 +5,156 @@ stages:
   - verify
   - rollback
 
-# Check if infrastructure exists
-infrastructure-check:
-  stage: pre-check
-  image: amazon/aws-cli
+.aws-base:
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache aws-cli
+
+.validate-variables:
   script:
     - |
-      # Check if ECS cluster exists
+      # Validate required environment variables
+      MISSING_VARS=0
+      
+      # Check AWS credentials and configuration
+      if [ -z "$AWS_REGION" ]; then
+        echo "ERROR: AWS_REGION is not set"
+        MISSING_VARS=1
+      fi
+      
+      if [ -z "$AWS_ACCESS_KEY_ID" ]; then
+        echo "ERROR: AWS_ACCESS_KEY_ID is not set"
+        MISSING_VARS=1
+      fi
+      
+      if [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+        echo "ERROR: AWS_SECRET_ACCESS_KEY is not set"
+        MISSING_VARS=1
+      fi
+      
+      # Check project configuration
+      if [ -z "$PROJECT_NAME" ]; then
+        echo "ERROR: PROJECT_NAME is not set"
+        MISSING_VARS=1
+      fi
+      
+      if [ -z "$ECS_CLUSTER_NAME" ]; then
+        echo "ERROR: ECS_CLUSTER_NAME is not set"
+        MISSING_VARS=1
+      fi
+      
+      if [ -z "$AWS_ACCOUNT_ID" ]; then
+        echo "ERROR: AWS_ACCOUNT_ID is not set"
+        MISSING_VARS=1
+      fi
+      
+      # Exit if any required variables are missing
+      if [ $MISSING_VARS -ne 0 ]; then
+        echo "ERROR: Missing required environment variables. Please set them in GitLab CI/CD settings."
+        exit 1
+      fi
+
+# Validate required variables and check infrastructure
+infrastructure-check:
+  extends: .aws-base
+  stage: pre-check
+  script:
+    - |
+      # Validate required environment variables
+      echo "Validating required environment variables..."
+      
+      MISSING_VARS=0
+      
+      # Check AWS credentials and configuration
+      if [ -z "$AWS_REGION" ]; then
+        echo "ERROR: AWS_REGION is not set"
+        MISSING_VARS=1
+      fi
+      
+      if [ -z "$AWS_ACCESS_KEY_ID" ]; then
+        echo "ERROR: AWS_ACCESS_KEY_ID is not set"
+        MISSING_VARS=1
+      fi
+      
+      if [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+        echo "ERROR: AWS_SECRET_ACCESS_KEY is not set"
+        MISSING_VARS=1
+      fi
+      
+      # Check project configuration
+      if [ -z "$PROJECT_NAME" ]; then
+        echo "ERROR: PROJECT_NAME is not set"
+        MISSING_VARS=1
+      fi
+      
+      if [ -z "$ECS_CLUSTER_NAME" ]; then
+        echo "ERROR: ECS_CLUSTER_NAME is not set"
+        MISSING_VARS=1
+      fi
+      
+      if [ -z "$AWS_ACCOUNT_ID" ]; then
+        echo "ERROR: AWS_ACCOUNT_ID is not set"
+        MISSING_VARS=1
+      fi
+      
+      if [ -z "$FRONTEND_SERVICE_NAME" ]; then
+        echo "ERROR: FRONTEND_SERVICE_NAME is not set"
+        MISSING_VARS=1
+      fi
+      
+      if [ -z "$BACKEND_SERVICE_NAME" ]; then
+        echo "ERROR: BACKEND_SERVICE_NAME is not set"
+        MISSING_VARS=1
+      fi
+      
+      # Exit if any required variables are missing
+      if [ $MISSING_VARS -ne 0 ]; then
+        echo "ERROR: Missing required environment variables. Please set them in GitLab CI/CD settings."
+        exit 1
+      fi
+      
+      echo "All required environment variables are set."
+      
+      # Now check infrastructure
+      echo "Checking if ECS cluster exists..."
       if ! aws ecs describe-clusters --clusters ${ECS_CLUSTER_NAME} --region ${AWS_REGION} --query "clusters[0].status" --output text 2>/dev/null | grep -q "ACTIVE"; then
         echo "ECS Cluster ${ECS_CLUSTER_NAME} does not exist or is not active. Please deploy infrastructure first."
         exit 1
       fi
-
-      # Check if ECR repositories exist
+      
+      echo "Checking if ECR repositories exist..."
       if ! aws ecr describe-repositories --repository-names ${PROJECT_NAME}-web-app-docker --region ${AWS_REGION} --query "repositories[0].repositoryName" --output text 2>/dev/null; then
         echo "ECR Repository ${PROJECT_NAME}-web-app-docker does not exist. Please deploy infrastructure first."
         exit 1
       fi
-
+      
       if ! aws ecr describe-repositories --repository-names ${PROJECT_NAME}-server-docker --region ${AWS_REGION} --query "repositories[0].repositoryName" --output text 2>/dev/null; then
         echo "ECR Repository ${PROJECT_NAME}-server-docker does not exist. Please deploy infrastructure first."
         exit 1
       fi
-
-      # Check if task definitions exist
+      
+      echo "Checking if task definitions exist..."
       if ! aws ecs describe-task-definition --task-definition frontend-task --region ${AWS_REGION} 2>/dev/null; then
         echo "Frontend task definition does not exist. Please deploy infrastructure first."
         exit 1
       fi
-
+      
       if ! aws ecs describe-task-definition --task-definition backend-task --region ${AWS_REGION} 2>/dev/null; then
         echo "Backend task definition does not exist. Please deploy infrastructure first."
         exit 1
       fi
-
-      # Check if ECS services exist
+      
+      echo "Checking if ECS services exist..."
       if ! aws ecs describe-services --cluster ${ECS_CLUSTER_NAME} --services ${FRONTEND_SERVICE_NAME} --region ${AWS_REGION} --query "services[0].status" --output text 2>/dev/null | grep -q "ACTIVE"; then
         echo "Frontend service does not exist or is not active. Please deploy infrastructure first."
         exit 1
       fi
-
+      
       if ! aws ecs describe-services --cluster ${ECS_CLUSTER_NAME} --services ${BACKEND_SERVICE_NAME} --region ${AWS_REGION} --query "services[0].status" --output text 2>/dev/null | grep -q "ACTIVE"; then
         echo "Backend service does not exist or is not active. Please deploy infrastructure first."
         exit 1
       fi
-
+      
       echo "All required infrastructure exists and is active. Proceeding with deployment."
 
 variables:
@@ -61,17 +166,18 @@ variables:
   AWS_REGION: $AWS_REGION
   FRONTEND_IMAGE_TAG: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-web-app-docker:${CI_COMMIT_SHA}"
   BACKEND_IMAGE_TAG: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-server-docker:${CI_COMMIT_SHA}"
-  NEXT_PUBLIC_SERVER_URL: $NEXT_PUBLIC_SERVER_URL
   NODE_EXTRA_CA_CERTS: $NODE_EXTRA_CA_CERTS
 
 # Build and Push Frontend Image
 build-frontend:
+  extends: 
+    - .aws-base
+    - .validate-variables
   stage: build
   image: docker:20.10.16
   services:
     - docker:20.10.16-dind
   script:
-    - apk add --no-cache aws-cli
     - aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
     - |
       # Get backend URL with fallback
@@ -93,12 +199,14 @@ build-frontend:
 
 # Build and Push Backend Image
 build-backend:
+  extends: 
+    - .aws-base
+    - .validate-variables
   stage: build
   image: docker:20.10.16
   services:
     - docker:20.10.16-dind
   script:
-    - apk add --no-cache aws-cli
     - aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
     - FRONTEND_URL=$(aws ssm get-parameter --name "/${PROJECT_NAME}/frontend-alb-dns" --region ${AWS_REGION} --query "Parameter.Value" --output text 2>/dev/null || echo "https://app.${PROJECT_NAME}.com")
     - docker build -t ${BACKEND_IMAGE_TAG} \
@@ -114,6 +222,9 @@ build-backend:
 
 # Deploy Frontend to ECS with Rolling Deployment
 deploy-frontend:
+  extends: 
+    - .aws-base
+    - .validate-variables
   stage: deploy
   image: amazon/aws-cli
   script:
@@ -151,6 +262,9 @@ deploy-frontend:
 
 # Deploy Backend to ECS with Rolling Deployment
 deploy-backend:
+  extends: 
+    - .aws-base
+    - .validate-variables
   stage: deploy
   image: amazon/aws-cli
   script:
@@ -183,8 +297,10 @@ deploy-backend:
 
 # Verify Frontend Deployment
 verify-frontend-deployment:
+  extends: 
+    - .aws-base
+    - .validate-variables
   stage: verify
-  image: amazon/aws-cli
   script:
     - |
       # Wait for service to stabilize
@@ -207,8 +323,10 @@ verify-frontend-deployment:
 
 # Verify Backend Deployment
 verify-backend-deployment:
+  extends: 
+    - .aws-base
+    - .validate-variables
   stage: verify
-  image: amazon/aws-cli
   script:
     - |
       # Wait for service to stabilize
@@ -231,6 +349,9 @@ verify-backend-deployment:
 
 # Manual rollback for Frontend
 rollback-frontend:
+  extends: 
+    - .aws-base
+    - .validate-variables
   stage: rollback
   image: amazon/aws-cli
   when: manual
@@ -254,6 +375,9 @@ rollback-frontend:
 
 # Manual rollback for Backend
 rollback-backend:
+  extends: 
+    - .aws-base
+    - .validate-variables
   stage: rollback
   image: amazon/aws-cli
   when: manual
