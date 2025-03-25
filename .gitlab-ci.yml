@@ -1,67 +1,284 @@
-# stages:
-#   - build
-#   - deploy
+stages:
+  - pre-check
+  - build
+  - deploy
+  - verify
+  - rollback
 
-# variables:
-#   AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID
-#   PROJECT_NAME: $PROJECT_NAME
-#   ECS_CLUSTER_NAME: $ECS_CLUSTER_NAME
-#   FRONTEND_SERVICE_NAME: $FRONTEND_SERVICE_NAME
-#   BACKEND_SERVICE_NAME: $BACKEND_SERVICE_NAME
-#   AWS_REGION: $AWS_REGION
-#   FRONTEND_IMAGE_TAG: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-web-app-docker:${CI_COMMIT_SHA}"
-#   BACKEND_IMAGE_TAG: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-server-docker:${CI_COMMIT_SHA}"
+# Check if infrastructure exists
+infrastructure-check:
+  stage: pre-check
+  image: amazon/aws-cli
+  script:
+    - |
+      # Check if ECS cluster exists
+      if ! aws ecs describe-clusters --clusters ${ECS_CLUSTER_NAME} --region ${AWS_REGION} --query "clusters[0].status" --output text 2>/dev/null | grep -q "ACTIVE"; then
+        echo "ECS Cluster ${ECS_CLUSTER_NAME} does not exist or is not active. Please deploy infrastructure first."
+        exit 1
+      fi
 
-# # Build and Push Frontend Image
-# build-frontend:
-#   stage: build
-#   image: docker:20.10.16
-#   services:
-#     - docker:20.10.16-dind
-#   script:
-#     - apk add --no-cache aws-cli
-#     - aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
-#     - docker build -t ${FRONTEND_IMAGE_TAG} -f client/web-app.Dockerfile ./client
-#     - docker push ${FRONTEND_IMAGE_TAG}
-#   rules:
-#     - changes:
-#         - client/**
+      # Check if ECR repositories exist
+      if ! aws ecr describe-repositories --repository-names ${PROJECT_NAME}-web-app-docker --region ${AWS_REGION} --query "repositories[0].repositoryName" --output text 2>/dev/null; then
+        echo "ECR Repository ${PROJECT_NAME}-web-app-docker does not exist. Please deploy infrastructure first."
+        exit 1
+      fi
 
-# # Build and Push Backend Image
-# build-backend:
-#   stage: build
-#   image: docker:20.10.16
-#   services:
-#     - docker:20.10.16-dind
-#   script:
-#     - apk add --no-cache aws-cli
-#     - aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
-#     - docker build -t ${BACKEND_IMAGE_TAG} -f server/server.Dockerfile ./server
-#     - docker push ${BACKEND_IMAGE_TAG}
-#   rules:
-#     - changes:
-#         - server/**
+      if ! aws ecr describe-repositories --repository-names ${PROJECT_NAME}-server-docker --region ${AWS_REGION} --query "repositories[0].repositoryName" --output text 2>/dev/null; then
+        echo "ECR Repository ${PROJECT_NAME}-server-docker does not exist. Please deploy infrastructure first."
+        exit 1
+      fi
 
-# # Deploy Frontend to ECS
-# deploy-frontend:
-#   stage: deploy
-#   image: amazon/aws-cli
-#   script:
-#     - aws ecs update-service --cluster ${ECS_CLUSTER_NAME} --service ${FRONTEND_SERVICE_NAME} --force-new-deployment
-#   environment:
-#     name: staging
-#   rules:
-#     - changes:
-#         - client/**
+      # Check if task definitions exist
+      if ! aws ecs describe-task-definition --task-definition frontend-task --region ${AWS_REGION} 2>/dev/null; then
+        echo "Frontend task definition does not exist. Please deploy infrastructure first."
+        exit 1
+      fi
 
-# # Deploy Backend to ECS
-# deploy-backend:
-#   stage: deploy
-#   image: amazon/aws-cli
-#   script:
-#     - aws ecs update-service --cluster ${ECS_CLUSTER_NAME} --service ${BACKEND_SERVICE_NAME} --force-new-deployment
-#   environment:
-#     name: staging
-#   rules:
-#     - changes:
-#         - server/**
+      if ! aws ecs describe-task-definition --task-definition backend-task --region ${AWS_REGION} 2>/dev/null; then
+        echo "Backend task definition does not exist. Please deploy infrastructure first."
+        exit 1
+      fi
+
+      # Check if ECS services exist
+      if ! aws ecs describe-services --cluster ${ECS_CLUSTER_NAME} --services ${FRONTEND_SERVICE_NAME} --region ${AWS_REGION} --query "services[0].status" --output text 2>/dev/null | grep -q "ACTIVE"; then
+        echo "Frontend service does not exist or is not active. Please deploy infrastructure first."
+        exit 1
+      fi
+
+      if ! aws ecs describe-services --cluster ${ECS_CLUSTER_NAME} --services ${BACKEND_SERVICE_NAME} --region ${AWS_REGION} --query "services[0].status" --output text 2>/dev/null | grep -q "ACTIVE"; then
+        echo "Backend service does not exist or is not active. Please deploy infrastructure first."
+        exit 1
+      fi
+
+      echo "All required infrastructure exists and is active. Proceeding with deployment."
+
+variables:
+  AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID
+  PROJECT_NAME: $PROJECT_NAME
+  ECS_CLUSTER_NAME: $ECS_CLUSTER_NAME
+  FRONTEND_SERVICE_NAME: "frontend-service"
+  BACKEND_SERVICE_NAME: "backend-service"
+  AWS_REGION: $AWS_REGION
+  FRONTEND_IMAGE_TAG: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-web-app-docker:${CI_COMMIT_SHA}"
+  BACKEND_IMAGE_TAG: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-server-docker:${CI_COMMIT_SHA}"
+  NEXT_PUBLIC_SERVER_URL: $NEXT_PUBLIC_SERVER_URL
+  NODE_EXTRA_CA_CERTS: $NODE_EXTRA_CA_CERTS
+
+# Build and Push Frontend Image
+build-frontend:
+  stage: build
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  script:
+    - apk add --no-cache aws-cli
+    - aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+    - |
+      # Get backend URL with fallback
+      BACKEND_URL=$(aws ssm get-parameter --name "/${PROJECT_NAME}/backend-alb-dns" --region ${AWS_REGION} --query "Parameter.Value" --output text 2>/dev/null || echo "http://localhost:8080")
+      echo "Using backend URL: ${BACKEND_URL}"
+    - docker build -t ${FRONTEND_IMAGE_TAG} \
+      --build-arg NEXT_PUBLIC_SERVER_URL=${BACKEND_URL} \
+      --build-arg PROJECT_NAME=${PROJECT_NAME} \
+      --build-arg AWS_REGION=${AWS_REGION} \
+      --build-arg NODE_EXTRA_CA_CERTS=${NODE_EXTRA_CA_CERTS} \
+      -f docker/web-app.Dockerfile ./client
+    - docker push ${FRONTEND_IMAGE_TAG}
+  rules:
+    - changes:
+        - client/**
+        - docker/web-app.Dockerfile
+  needs:
+    - infrastructure-check
+
+# Build and Push Backend Image
+build-backend:
+  stage: build
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  script:
+    - apk add --no-cache aws-cli
+    - aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+    - FRONTEND_URL=$(aws ssm get-parameter --name "/${PROJECT_NAME}/frontend-alb-dns" --region ${AWS_REGION} --query "Parameter.Value" --output text 2>/dev/null || echo "https://app.${PROJECT_NAME}.com")
+    - docker build -t ${BACKEND_IMAGE_TAG} \
+      --build-arg CLIENT_URL=${FRONTEND_URL} \
+      --build-arg PROJECT_NAME=${PROJECT_NAME} \
+      --build-arg AWS_REGION=${AWS_REGION} \
+      -f docker/server.Dockerfile ./server
+    - docker push ${BACKEND_IMAGE_TAG}
+  rules:
+    - changes:
+        - server/**
+        - docker/server.Dockerfile
+
+# Deploy Frontend to ECS with Rolling Deployment
+deploy-frontend:
+  stage: deploy
+  image: amazon/aws-cli
+  script:
+    - apk add --no-cache jq
+    - |
+      # Try to get current task definition
+      if ! TASK_DEF=$(aws ecs describe-task-definition --task-definition frontend-task --region ${AWS_REGION} 2>/dev/null); then
+        echo "Task definition not found. Deployment cannot proceed."
+        exit 1
+      fi
+      
+      # Create new task definition with updated image
+      NEW_TASK_DEF=$(echo $TASK_DEF | jq --arg IMAGE "${FRONTEND_IMAGE_TAG}" '.taskDefinition | .containerDefinitions[0].image = $IMAGE | {containerDefinitions: .containerDefinitions, family: .family, taskRoleArn: .taskRoleArn, executionRoleArn: .executionRoleArn, networkMode: .networkMode, volumes: .volumes, placementConstraints: .placementConstraints, requiresCompatibilities: .requiresCompatibilities, cpu: .cpu, memory: .memory}')
+      
+      # Register new task definition
+      NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --region ${AWS_REGION} --cli-input-json "$NEW_TASK_DEF" | jq -r '.taskDefinition.taskDefinitionArn')
+      
+      # Update service with new task definition - this triggers the rolling deployment
+      aws ecs update-service --cluster ${ECS_CLUSTER_NAME} --service ${FRONTEND_SERVICE_NAME} --task-definition ${NEW_TASK_DEF_ARN} --region ${AWS_REGION}
+      
+      # Store the previous task definition ARN for potential rollback
+      echo $TASK_DEF | jq -r '.taskDefinition.taskDefinitionArn' > frontend-previous-task-def.txt
+  artifacts:
+    paths:
+      - frontend-previous-task-def.txt
+    expire_in: 1 day
+  environment:
+    name: production
+  rules:
+    - changes:
+        - client/**
+        - docker/web-app.Dockerfile
+  needs:
+    - build-frontend
+
+# Deploy Backend to ECS with Rolling Deployment
+deploy-backend:
+  stage: deploy
+  image: amazon/aws-cli
+  script:
+    - apk add --no-cache jq
+    - |
+      # Get current task definition
+      TASK_DEF=$(aws ecs describe-task-definition --task-definition backend-task --region ${AWS_REGION})
+
+      # Create new task definition with updated image
+      NEW_TASK_DEF=$(echo $TASK_DEF | jq --arg IMAGE "${BACKEND_IMAGE_TAG}" '.taskDefinition | .containerDefinitions[0].image = $IMAGE | {containerDefinitions: .containerDefinitions, family: .family, taskRoleArn: .taskRoleArn, executionRoleArn: .executionRoleArn, networkMode: .networkMode, volumes: .volumes, placementConstraints: .placementConstraints, requiresCompatibilities: .requiresCompatibilities, cpu: .cpu, memory: .memory}')
+
+      # Register new task definition
+      NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --region ${AWS_REGION} --cli-input-json "$NEW_TASK_DEF" | jq -r '.taskDefinition.taskDefinitionArn')
+
+      # Update service with new task definition - this triggers the rolling deployment
+      aws ecs update-service --cluster ${ECS_CLUSTER_NAME} --service ${BACKEND_SERVICE_NAME} --task-definition ${NEW_TASK_DEF_ARN} --region ${AWS_REGION}
+
+      # Store the previous task definition ARN for potential rollback
+      echo $TASK_DEF | jq -r '.taskDefinition.taskDefinitionArn' > backend-previous-task-def.txt
+  artifacts:
+    paths:
+      - backend-previous-task-def.txt
+    expire_in: 1 day
+  environment:
+    name: production
+  rules:
+    - changes:
+        - server/**
+        - docker/server.Dockerfile
+
+# Verify Frontend Deployment
+verify-frontend-deployment:
+  stage: verify
+  image: amazon/aws-cli
+  script:
+    - |
+      # Wait for service to stabilize
+      echo "Waiting for frontend service to stabilize..."
+      aws ecs wait services-stable --cluster ${ECS_CLUSTER_NAME} --services ${FRONTEND_SERVICE_NAME} --region ${AWS_REGION}
+
+      # Check if deployment was successful
+      DEPLOYMENT_STATUS=$(aws ecs describe-services --cluster ${ECS_CLUSTER_NAME} --services ${FRONTEND_SERVICE_NAME} --region ${AWS_REGION} | jq -r '.services[0].deployments[] | select(.status == "PRIMARY") | .rolloutState')
+
+      if [ "$DEPLOYMENT_STATUS" != "COMPLETED" ]; then
+        echo "Frontend deployment failed with status: $DEPLOYMENT_STATUS"
+        exit 1
+      fi
+
+      echo "Frontend deployment successful!"
+  rules:
+    - changes:
+        - client/**
+        - docker/web-app.Dockerfile
+
+# Verify Backend Deployment
+verify-backend-deployment:
+  stage: verify
+  image: amazon/aws-cli
+  script:
+    - |
+      # Wait for service to stabilize
+      echo "Waiting for backend service to stabilize..."
+      aws ecs wait services-stable --cluster ${ECS_CLUSTER_NAME} --services ${BACKEND_SERVICE_NAME} --region ${AWS_REGION}
+
+      # Check if deployment was successful
+      DEPLOYMENT_STATUS=$(aws ecs describe-services --cluster ${ECS_CLUSTER_NAME} --services ${BACKEND_SERVICE_NAME} --region ${AWS_REGION} | jq -r '.services[0].deployments[] | select(.status == "PRIMARY") | .rolloutState')
+
+      if [ "$DEPLOYMENT_STATUS" != "COMPLETED" ]; then
+        echo "Backend deployment failed with status: $DEPLOYMENT_STATUS"
+        exit 1
+      fi
+
+      echo "Backend deployment successful!"
+  rules:
+    - changes:
+        - server/**
+        - docker/server.Dockerfile
+
+# Manual rollback for Frontend
+rollback-frontend:
+  stage: rollback
+  image: amazon/aws-cli
+  when: manual
+  script:
+    - |
+      # Get the previous task definition ARN
+      PREVIOUS_TASK_DEF=$(cat frontend-previous-task-def.txt)
+
+      # Update the service to use the previous task definition
+      aws ecs update-service --cluster ${ECS_CLUSTER_NAME} --service ${FRONTEND_SERVICE_NAME} --task-definition ${PREVIOUS_TASK_DEF} --region ${AWS_REGION}
+
+      # Wait for service to stabilize
+      echo "Rolling back to previous version..."
+      aws ecs wait services-stable --cluster ${ECS_CLUSTER_NAME} --services ${FRONTEND_SERVICE_NAME} --region ${AWS_REGION}
+  environment:
+    name: production
+  rules:
+    - changes:
+        - client/**
+        - docker/web-app.Dockerfile
+
+# Manual rollback for Backend
+rollback-backend:
+  stage: rollback
+  image: amazon/aws-cli
+  when: manual
+  script:
+    - |
+      # Get the previous task definition ARN
+      PREVIOUS_TASK_DEF=$(cat backend-previous-task-def.txt)
+
+      # Update the service to use the previous task definition
+      aws ecs update-service --cluster ${ECS_CLUSTER_NAME} --service ${BACKEND_SERVICE_NAME} --task-definition ${PREVIOUS_TASK_DEF} --region ${AWS_REGION}
+
+      # Wait for service to stabilize
+      echo "Rolling back to previous version..."
+      aws ecs wait services-stable --cluster ${ECS_CLUSTER_NAME} --services ${BACKEND_SERVICE_NAME} --region ${AWS_REGION}
+  environment:
+    name: production
+  rules:
+    - changes:
+        - server/**
+        - docker/server.Dockerfile
+
+workflow:
+  rules:
+    - if: '$CI_COMMIT_MESSAGE =~ /\[skip pipeline\]/'
+      when: never
+    - if: '$SKIP_PIPELINE == "true"'
+      when: never
+    - when: always

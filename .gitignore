@@ -17,3 +17,4 @@ crash.log
 notes.txt
 vault.json
 */vault_output.txt
+terraform/.terraform.tfstate.lock.info

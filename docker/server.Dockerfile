@@ -2,13 +2,13 @@ FROM node:20.17.0-alpine
 
 WORKDIR /app
 
-COPY ./server/package*.json ./
+COPY package*.json ./
 
 RUN apk add --no-cache curl
 
 RUN npm install
 
-COPY ./server .
+COPY . .
 
 EXPOSE 8080
 

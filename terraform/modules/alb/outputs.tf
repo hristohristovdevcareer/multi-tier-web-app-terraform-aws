@@ -15,3 +15,7 @@ output "internal_certificate_pem" {
   sensitive   = true
   description = "The internal certificate in PEM format"
 }
+
+output "frontend_alb_dns_name" {
+  value = aws_lb.frontend_alb.dns_name
+}

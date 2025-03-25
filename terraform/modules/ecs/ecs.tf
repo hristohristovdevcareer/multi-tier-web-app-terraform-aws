@@ -81,20 +81,20 @@ resource "aws_ecs_task_definition" "frontend-task-definition" {
   family                   = "frontend-task"
   network_mode             = "bridge"
   requires_compatibilities = ["EC2"]
-  cpu                      = "1024"
-  memory                   = "1536"
+  cpu                      = "512"
+  memory                   = "768"
   task_role_arn            = var.ECS_TASK_ROLE_ARN
   execution_role_arn       = var.ECS_TASK_EXECUTION_ROLE_ARN
 
   container_definitions = jsonencode([{
-    memory            = 1536
-    memoryReservation = 1536
-    cpu               = 1024
+    memory            = 768
+    memoryReservation = 768
+    cpu               = 512
     ulimits = [
       {
         name      = "nofile",
-        softLimit = 65536,
-        hardLimit = 65536
+        softLimit = 4096,
+        hardLimit = 4096
       }
     ]
     name  = "frontend-task"
@@ -194,6 +194,10 @@ resource "aws_ecs_task_definition" "backend-task-definition" {
         value = var.PROJECT_NAME
       },
       {
+        name  = "CLIENT_URL"
+        value = "https://${var.FRONTEND_ALB_DNS_NAME}"
+      },
+      {
         name  = "DB_HOST"
         value = var.DB_HOST
       },
@@ -243,6 +247,14 @@ resource "aws_ecs_service" "frontend-service" {
   desired_count                     = 1
   health_check_grace_period_seconds = 600
 
+  deployment_minimum_healthy_percent = 25
+  deployment_maximum_percent         = 150
+
+   ordered_placement_strategy {
+     type  = "spread"
+    field = "attribute:ecs.availability-zone"  // Spread across AZs
+  }
+
   capacity_provider_strategy {
     capacity_provider = aws_ecs_capacity_provider.frontend_capacity_provider.name
     weight            = 100
@@ -273,6 +285,14 @@ resource "aws_ecs_service" "backend-service" {
   task_definition                   = aws_ecs_task_definition.backend-task-definition.arn
   desired_count                     = 1
   health_check_grace_period_seconds = 600
+
+  deployment_minimum_healthy_percent = 50
+  deployment_maximum_percent         = 200
+
+   ordered_placement_strategy {
+     type  = "spread"
+    field = "attribute:ecs.availability-zone"  // Spread across AZs
+  }
 
   load_balancer {
     target_group_arn = var.BACKEND_TARGET_GROUP_ARN
@@ -359,7 +379,7 @@ resource "aws_autoscaling_group" "frontend-autoscaling-group" {
     version = "$Latest"
   }
   min_size            = length(var.AVAILABILITY_ZONES)
-  max_size            = length(var.AVAILABILITY_ZONES) * 2
+  max_size            = (length(var.AVAILABILITY_ZONES) * 2) + 1
   desired_capacity    = length(var.AVAILABILITY_ZONES)
   vpc_zone_identifier = var.PUBLIC_SUBNET_IDS
 
@@ -389,7 +409,7 @@ resource "aws_autoscaling_group" "backend-autoscaling-group" {
     version = "$Latest"
   }
   min_size            = length(var.AVAILABILITY_ZONES)
-  max_size            = length(var.AVAILABILITY_ZONES) * 2
+  max_size            = (length(var.AVAILABILITY_ZONES) * 2) + 1
   desired_capacity    = length(var.AVAILABILITY_ZONES)
   vpc_zone_identifier = var.PRIVATE_SUBNET_IDS
 
@@ -424,7 +444,7 @@ resource "aws_autoscaling_group" "backend-autoscaling-group" {
 resource "aws_launch_template" "frontend-template" {
   name          = "frontend-launch-template"
   image_id      = var.EC2_INSTANCE_AMI
-  instance_type = "t3.small"
+  instance_type = "t3.micro"
 
   key_name               = var.EC2_KEY_PAIR_NAME
   vpc_security_group_ids = [var.FRONTEND_ECS_SECURITY_GROUP_ID]

@@ -130,6 +130,18 @@ resource "aws_ssm_parameter" "internal_certificate" {
   }
 }
 
+resource "aws_ssm_parameter" "backend_alb_dns" {
+  name        = "/${var.PROJECT_NAME}/backend-alb-dns"
+  description = "Backend ALB DNS name for frontend to connect to"
+  type        = "String"
+  value       = "https://${module.alb.backend_alb_dns_name}"
+
+  tags = {
+    Name        = "${var.PROJECT_NAME}-backend-alb-dns"
+    Environment = "production"
+  }
+}
+
 module "ecs" {
   source = "./modules/ecs"
 
@@ -166,7 +178,7 @@ module "ecs" {
   VPC                              = module.vpc.vpc_id
   INTERNAL_SERVICE_NAME            = var.INTERNAL_SERVICE_NAME
   BACKEND_ALB_DNS_NAME             = module.alb.backend_alb_dns_name
-
+  FRONTEND_ALB_DNS_NAME            = module.alb.frontend_alb_dns_name
   depends_on = [module.vault]
 }
   

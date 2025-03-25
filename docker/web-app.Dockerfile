@@ -5,13 +5,13 @@ FROM node:20.17.0-alpine AS build
 WORKDIR /app
 
 # Copy package files
-COPY ../client/package*.json ./
+COPY package*.json ./
 
 # Install dependencies
 RUN npm ci
 
 # Copy the application code
-COPY ../client/ .
+COPY . .
 
 # Build application
 ARG NEXT_PUBLIC_SERVER_URL

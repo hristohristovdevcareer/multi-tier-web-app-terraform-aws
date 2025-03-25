@@ -143,3 +143,8 @@ variable "BACKEND_ALB_DNS_NAME" {
   description = "Backend ALB DNS Name"
   type        = string
 }
+
+variable "FRONTEND_ALB_DNS_NAME" {
+  description = "Frontend ALB DNS Name"
+  type        = string
+}
