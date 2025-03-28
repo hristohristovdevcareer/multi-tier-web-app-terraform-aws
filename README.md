@@ -44,11 +44,14 @@ Variables that need to be set in vault:
     1.1. var - ec2_ssh_public_key \
     1.2. var - nat_ssh_private_key
 2. Group - gitlab_keys \
-    1.1. var - gitlab_private_key \
-    1.2. var - gitlab_public_key
+    2.1. var - gitlab_private_key \
+    2.2. var - gitlab_public_key
 3. Group - db_credentials \
-    1.1. var - username \
-    1.2. var - password
+    3.1. var - username \
+    3.2. var - password
+4. Group - cloudflare \
+    4.1. var - cloudflare_api_token \
+    4.2. var - cloudflare_zone_id
 
 ### Automated Setup ###
 1. From the terraform folder, make the init_vault.sh script executable:
