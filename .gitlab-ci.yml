@@ -449,3 +449,12 @@ workflow:
     - if: '$SKIP_PIPELINE == "true"'
       when: never
     - when: always
+
+
+test-job:
+  stage: pre-check
+  image: alpine:latest
+  script:
+    - echo "This is a test job"
+  rules:
+    - when: always
