@@ -4,7 +4,7 @@ services:
   frontend:
     build:
       context: ../client
-      dockerfile: ./docker/web-app.Dockerfile
+      dockerfile: ../docker/web-app.Dockerfile
       args:
         PROJECT_NAME: ${PROJECT_NAME}
         IMAGE_TAG: ${IMAGE_TAG}
@@ -26,9 +26,11 @@ services:
   backend:
     build:
       context: ../server
-      dockerfile: ./docker/server.Dockerfile
+      dockerfile: ../docker/server.Dockerfile
       args:
         PROJECT_NAME: ${PROJECT_NAME}
+        IMAGE_TAG: ${IMAGE_TAG}
+        CLIENT_URL: ${CLIENT_URL}
         # DB_HOST: ${DB_HOST}
         # DB_NAME: ${DB_NAME}
         # DB_USER: ${DB_USER}
