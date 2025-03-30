@@ -238,9 +238,7 @@ build-frontend:
       -f docker/web-app.Dockerfile ./client
     - docker push ${FRONTEND_IMAGE_TAG}
   rules:
-    - changes:
-        - client/**
-        - docker/web-app.Dockerfile
+    - when: always
   needs:
     - infrastructure-check
 
@@ -263,9 +261,7 @@ build-backend:
       -f docker/server.Dockerfile ./server
     - docker push ${BACKEND_IMAGE_TAG}
   rules:
-    - changes:
-        - server/**
-        - docker/server.Dockerfile
+    - when: always
   needs:
     - infrastructure-check
 
@@ -301,9 +297,7 @@ deploy-frontend:
       - frontend-previous-task-def.txt
     expire_in: 1 day
   rules:
-    - changes:
-        - client/**
-        - docker/web-app.Dockerfile
+    - when: always
   needs:
     - build-frontend
     
@@ -336,9 +330,7 @@ deploy-backend:
       - backend-previous-task-def.txt
     expire_in: 1 day
   rules:
-    - changes:
-        - server/**
-        - docker/server.Dockerfile
+    - when: always
   needs:
     - build-backend
 
@@ -364,9 +356,7 @@ verify-frontend-deployment:
 
       echo "Frontend deployment successful!"
   rules:
-    - changes:
-        - client/**
-        - docker/web-app.Dockerfile
+    - when: always
   needs:
     - deploy-frontend
 
@@ -392,9 +382,7 @@ verify-backend-deployment:
 
       echo "Backend deployment successful!"
   rules:
-    - changes:
-        - server/**
-        - docker/server.Dockerfile
+    - when: always
   needs:
     - build-backend
 
