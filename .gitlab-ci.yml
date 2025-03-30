@@ -69,42 +69,58 @@ infrastructure-check:
       if [ -z "$AWS_REGION" ]; then
         echo "ERROR: AWS_REGION is not set"
         MISSING_VARS=1
+      else
+        echo "AWS_REGION is set to: $AWS_REGION"
       fi
       
       if [ -z "$AWS_ACCESS_KEY_ID" ]; then
         echo "ERROR: AWS_ACCESS_KEY_ID is not set"
         MISSING_VARS=1
+      else
+        echo "AWS_ACCESS_KEY_ID is set (value hidden)"
       fi
       
       if [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
         echo "ERROR: AWS_SECRET_ACCESS_KEY is not set"
         MISSING_VARS=1
+      else
+        echo "AWS_SECRET_ACCESS_KEY is set (value hidden)"
       fi
       
       # Check project configuration
       if [ -z "$PROJECT_NAME" ]; then
         echo "ERROR: PROJECT_NAME is not set"
         MISSING_VARS=1
+      else
+        echo "PROJECT_NAME is set to: $PROJECT_NAME"
       fi
       
       if [ -z "$ECS_CLUSTER_NAME" ]; then
         echo "ERROR: ECS_CLUSTER_NAME is not set"
         MISSING_VARS=1
+      else
+        echo "ECS_CLUSTER_NAME is set to: $ECS_CLUSTER_NAME"
       fi
       
       if [ -z "$AWS_ACCOUNT_ID" ]; then
         echo "ERROR: AWS_ACCOUNT_ID is not set"
         MISSING_VARS=1
+      else
+        echo "AWS_ACCOUNT_ID is set to: $AWS_ACCOUNT_ID"
       fi
       
       if [ -z "$FRONTEND_SERVICE_NAME" ]; then
         echo "ERROR: FRONTEND_SERVICE_NAME is not set"
         MISSING_VARS=1
+      else
+        echo "FRONTEND_SERVICE_NAME is set to: $FRONTEND_SERVICE_NAME"
       fi
       
       if [ -z "$BACKEND_SERVICE_NAME" ]; then
         echo "ERROR: BACKEND_SERVICE_NAME is not set"
         MISSING_VARS=1
+      else
+        echo "BACKEND_SERVICE_NAME is set to: $BACKEND_SERVICE_NAME"
       fi
       
       # Exit if any required variables are missing
@@ -115,12 +131,31 @@ infrastructure-check:
       
       echo "All required environment variables are set."
       
-      # Now check infrastructure
+      # Verify AWS CLI configuration
+      echo "Verifying AWS CLI configuration..."
+      aws --version
+      aws configure list
+      
       echo "Checking if ECS cluster exists..."
-      if ! aws ecs describe-clusters --clusters ${ECS_CLUSTER_NAME} --region ${AWS_REGION} --query "clusters[0].status" --output text 2>/dev/null | grep -q "ACTIVE"; then
-        echo "ECS Cluster ${ECS_CLUSTER_NAME} does not exist or is not active. Please deploy infrastructure first."
+      echo "Running: aws ecs describe-clusters --clusters ${ECS_CLUSTER_NAME} --region ${AWS_REGION}"
+      
+      # List all clusters
+      echo "Available ECS clusters:"
+      aws ecs list-clusters --region ${AWS_REGION}
+      
+      # Check specific cluster
+      if ! CLUSTER_STATUS=$(aws ecs describe-clusters --clusters ${ECS_CLUSTER_NAME} --region ${AWS_REGION} --query "clusters[0].status" --output text 2>&1); then
+        echo "Error checking ECS cluster: $CLUSTER_STATUS"
+        echo "ECS Cluster ${ECS_CLUSTER_NAME} could not be queried. Please check AWS credentials and cluster name."
         exit 1
       fi
+      
+      if [ "$CLUSTER_STATUS" != "ACTIVE" ]; then
+        echo "ECS Cluster ${ECS_CLUSTER_NAME} exists but is not active (status: $CLUSTER_STATUS). Please check cluster status."
+        exit 1
+      fi
+      
+      echo "ECS Cluster ${ECS_CLUSTER_NAME} exists and is active."
       
       echo "Checking if ECR repositories exist..."
       if ! aws ecr describe-repositories --repository-names ${PROJECT_NAME}-web-app-docker --region ${AWS_REGION} --query "repositories[0].repositoryName" --output text 2>/dev/null; then
