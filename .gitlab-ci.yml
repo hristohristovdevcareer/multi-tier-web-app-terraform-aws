@@ -205,6 +205,16 @@ variables:
   BACKEND_IMAGE_TAG: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-server-docker:${CI_COMMIT_SHA}"
   NODE_EXTRA_CA_CERTS: $NODE_EXTRA_CA_CERTS
 
+workflow:
+  rules:
+    - if: '$CI_COMMIT_MESSAGE =~ /\[skip pipeline\]/'
+      when: never
+    - if: '$SKIP_PIPELINE == "true"'
+      when: never
+    - when: always
+
+
+
 # Build and Push Frontend Image
 build-frontend:
   extends: 
@@ -441,45 +451,3 @@ rollback-backend:
   needs:
     - deploy-backend
     - verify-frontend-deployment
-
-workflow:
-  rules:
-    - if: '$CI_COMMIT_MESSAGE =~ /\[skip pipeline\]/'
-      when: never
-    - if: '$SKIP_PIPELINE == "true"'
-      when: never
-    - when: always
-
-simplified-build-frontend-with-script:
-  extends: .aws-base
-  stage: build
-  image: docker:20.10.16
-  services:
-    - docker:20.10.16-dind
-  script:
-    - aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
-    - |
-      # Get backend URL with fallback
-      BACKEND_URL=$(aws ssm get-parameter --name "/${PROJECT_NAME}/backend-alb" --region ${AWS_REGION} --query "Parameter.Value" --output text 2>/dev/null || echo "http://localhost:8080")
-      echo "Using backend URL: ${BACKEND_URL}"
-      echo "Would build and push image: ${FRONTEND_IMAGE_TAG}"
-  rules:
-    - when: always
-  needs:
-    - infrastructure-check
-
-simplified-build-frontend-with-validate:
-  extends: 
-    - .aws-base
-    - .validate-variables
-  stage: build
-  image: docker:20.10.16
-  services:
-    - docker:20.10.16-dind
-  script: |
-    echo "This is a simplified build-frontend job"
-    echo "Would build image: $FRONTEND_IMAGE_TAG"
-  rules:
-    - when: always
-  needs:
-    - infrastructure-check
