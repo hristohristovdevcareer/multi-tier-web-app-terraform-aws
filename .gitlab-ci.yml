@@ -56,7 +56,9 @@ stages:
 
 # Validate required variables and check infrastructure
 infrastructure-check:
-  extends: .aws-base
+  extends: 
+    - .aws-base
+    - .validate-variables
   stage: pre-check
   script:
     - |
