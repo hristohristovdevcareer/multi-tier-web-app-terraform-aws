@@ -227,8 +227,7 @@ build-frontend:
     - docker push ${FRONTEND_IMAGE_TAG}
   rules:
     - changes:
-        - client/**
-        - docker/web-app.Dockerfile
+        - always
   needs:
     - infrastructure-check
 
@@ -290,8 +289,7 @@ deploy-frontend:
     name: production
   rules:
     - changes:
-        - client/**
-        - docker/web-app.Dockerfile
+        - always
   needs:
     - build-frontend
 
@@ -353,8 +351,7 @@ verify-frontend-deployment:
       echo "Frontend deployment successful!"
   rules:
     - changes:
-        - client/**
-        - docker/web-app.Dockerfile
+        - always
 
 # Verify Backend Deployment
 verify-backend-deployment:
@@ -405,8 +402,7 @@ rollback-frontend:
     name: production
   rules:
     - changes:
-        - client/**
-        - docker/web-app.Dockerfile
+        - always
 
 # Manual rollback for Backend
 rollback-backend:
