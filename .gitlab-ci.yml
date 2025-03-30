@@ -450,32 +450,16 @@ workflow:
       when: never
     - when: always
 
-test-docker-image:
-  stage: pre-check
-  image: docker:20.10.16
-  script:
-    - echo "Testing with Docker image but no services"
-  rules:
-    - when: always
-
-test-docker-dind:
-  stage: pre-check
-  image: docker:20.10.16
-  services:
-    - docker:20.10.16-dind
-  script:
-    - echo "Testing with Docker image and Docker-in-Docker service"
-  rules:
-    - when: always
-
-test-build-job:
+simplified-build-frontend:
   extends: .aws-base
   stage: build
   image: docker:20.10.16
   services:
     - docker:20.10.16-dind
   script:
-    - echo "This is a simplified build job"
+    - | 
+      echo "This is a simplified build-frontend job"
+      echo "Would build image: ${FRONTEND_IMAGE_TAG}"
   rules:
     - when: always
   needs:
