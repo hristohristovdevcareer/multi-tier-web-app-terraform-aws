@@ -131,6 +131,7 @@ resource "aws_ssm_parameter" "internal_certificate" {
   }
 }
 
+# Store the backend ALB DNS name in SSM Parameter Store
 resource "aws_ssm_parameter" "backend_alb_dns" {
   name        = "/${var.PROJECT_NAME}/backend-alb-dns"
   description = "Backend ALB DNS name for frontend to connect to"
