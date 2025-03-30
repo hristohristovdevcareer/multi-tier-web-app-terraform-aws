@@ -1,6 +1,6 @@
 provider "aws" {
   profile = var.TF_PROFILE
-  region  = "eu-west-2"
+  region  = "eu-central-1"
 }
 
 provider "vault" {

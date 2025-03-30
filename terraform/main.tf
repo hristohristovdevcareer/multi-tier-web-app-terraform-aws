@@ -4,7 +4,7 @@ terraform {
   # backend "s3" {
   #   bucket         = "multi-tier-aws-app-terraform-state-bucket"
   #   key            = "terraform.tfstate"
-  #   region         = "eu-west-2"
+  #   region         = "eu-central-1"
   #   dynamodb_table = "multi-tier-aws-app-terraform-state-lock"
   #   encrypt        = true
   # }
@@ -48,7 +48,7 @@ module "vpc" {
   source = "./modules/vpc"
 
   CIDR_VPC           = var.CIDR_VPC
-  AVAILABILITY_ZONES = ["eu-west-2a", "eu-west-2b"]
+  AVAILABILITY_ZONES = var.AVAILABILITY_ZONES
   EC2_INSTANCE_AMI   = var.EC2_INSTANCE_AMI
   EC2_INSTANCE_TYPE  = var.EC2_INSTANCE_TYPE
   NAT_SG             = module.security_groups.nat_sg
@@ -107,6 +107,7 @@ module "ecr" {
   IMAGE_TAG              = var.ECR_IMAGE_TAG
   NEXT_PUBLIC_SERVER_URL = "https://${module.alb.backend_alb_dns_name}"
   NODE_EXTRA_CA_CERTS    = "/app/certs/internal-ca.crt"
+  CLIENT_URL             = "https://${module.alb.frontend_alb_dns_name}"
 }
 
 module "iam" {
@@ -174,11 +175,11 @@ module "ecs" {
   BACKEND_ECS_SECURITY_GROUP_ID    = module.security_groups.backend_instances_security_group
   EC2_KEY_PAIR_NAME                = aws_key_pair.ec2.key_name
   EC2_INSTANCE_PROFILE_NAME        = module.iam.ec2_instance_profile_name
-  AVAILABILITY_ZONES               = ["eu-west-2a", "eu-west-2b"]
+  AVAILABILITY_ZONES               = var.AVAILABILITY_ZONES
   VPC                              = module.vpc.vpc_id
   INTERNAL_SERVICE_NAME            = var.INTERNAL_SERVICE_NAME
   BACKEND_ALB_DNS_NAME             = module.alb.backend_alb_dns_name
   FRONTEND_ALB_DNS_NAME            = module.alb.frontend_alb_dns_name
-  depends_on = [module.vault]
+  depends_on                       = [module.vault]
 }
-  
+

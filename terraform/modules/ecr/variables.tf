@@ -47,3 +47,8 @@ variable "NODE_EXTRA_CA_CERTS" {
   description = "Node Extra CA Certs"
   type        = string
 }
+
+variable "CLIENT_URL" {
+  description = "Client URL"
+  type        = string
+}

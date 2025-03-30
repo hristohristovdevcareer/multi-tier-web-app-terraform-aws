@@ -135,3 +135,8 @@ variable "INTERNAL_SERVICE_NAME" {
   description = "Internal service name"
   type        = string
 }
+
+variable "AVAILABILITY_ZONES" {
+  description = "Availability zones"
+  type        = list(string)
+}

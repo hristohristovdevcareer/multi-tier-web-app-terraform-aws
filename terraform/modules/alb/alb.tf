@@ -12,7 +12,7 @@ terraform {
 }
 
 # ALB
-resource "aws_lb" "main" {
+resource "aws_lb" "frontend_alb" {
   name                       = "main-alb"
   internal                   = false
   security_groups            = [var.ALB_SECURITY_GROUP_ID]
@@ -60,7 +60,7 @@ resource "aws_lb_target_group" "frontend_target_group" {
 
 # Frontend Listener
 resource "aws_lb_listener" "frontend_https" {
-  load_balancer_arn = aws_lb.main.arn
+  load_balancer_arn = aws_lb.frontend_alb.arn
   port              = "443"
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-2016-08"
@@ -76,7 +76,7 @@ resource "aws_lb_listener" "frontend_https" {
 
 # HTTP listener to redirect to HTTPS
 resource "aws_lb_listener" "frontend_http" {
-  load_balancer_arn = aws_lb.main.arn
+  load_balancer_arn = aws_lb.frontend_alb.arn
   port              = "80"
   protocol          = "HTTP"
 
@@ -108,7 +108,7 @@ resource "aws_acm_certificate" "main" {
 resource "cloudflare_record" "alb" {
   zone_id = var.CLOUDFLARE_ZONE_ID
   name    = var.DOMAIN_NAME
-  content = aws_lb.main.dns_name
+  content = aws_lb.frontend_alb.dns_name
   type    = "CNAME"
   proxied = true # Enable Cloudflare's proxy features
 }

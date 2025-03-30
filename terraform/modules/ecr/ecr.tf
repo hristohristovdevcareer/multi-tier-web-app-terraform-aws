@@ -66,6 +66,7 @@ resource "null_resource" "docker_build_and_push" {
         --build-arg IMAGE_TAG="${var.IMAGE_TAG}" \
         --build-arg AWS_REGION="${var.AWS_REGION}" \
         --build-arg NODE_EXTRA_CA_CERTS="${var.NODE_EXTRA_CA_CERTS}"
+        --build-arg CLIENT_URL="${var.CLIENT_URL}"
 
       # Login to ECR
       aws ecr get-login-password --region ${var.AWS_REGION} | \

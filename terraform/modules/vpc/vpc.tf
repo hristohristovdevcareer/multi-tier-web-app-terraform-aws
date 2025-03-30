@@ -89,7 +89,7 @@ resource "aws_eip" "nat_eip" {
 # NAT Instance
 resource "aws_instance" "nat" {
   for_each      = toset(var.AVAILABILITY_ZONES)
-  ami           = var.EC2_INSTANCE_AMI # Ubuntu 22.04 LTS in eu-west-2
+  ami           = var.EC2_INSTANCE_AMI
   instance_type = var.EC2_INSTANCE_TYPE
   subnet_id     = aws_subnet.public[each.key].id
 

@@ -250,9 +250,9 @@ resource "aws_ecs_service" "frontend-service" {
   deployment_minimum_healthy_percent = 25
   deployment_maximum_percent         = 150
 
-   ordered_placement_strategy {
-     type  = "spread"
-    field = "attribute:ecs.availability-zone"  // Spread across AZs
+  ordered_placement_strategy {
+    type  = "spread"
+    field = "attribute:ecs.availability-zone" // Spread across AZs
   }
 
   capacity_provider_strategy {
@@ -289,9 +289,9 @@ resource "aws_ecs_service" "backend-service" {
   deployment_minimum_healthy_percent = 50
   deployment_maximum_percent         = 200
 
-   ordered_placement_strategy {
-     type  = "spread"
-    field = "attribute:ecs.availability-zone"  // Spread across AZs
+  ordered_placement_strategy {
+    type  = "spread"
+    field = "attribute:ecs.availability-zone" // Spread across AZs
   }
 
   load_balancer {
