@@ -228,7 +228,7 @@ build-frontend:
     - aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
     - |
       # Get backend URL with fallback
-      BACKEND_URL=$(aws ssm get-parameter --name "/${PROJECT_NAME}/backend-alb" --region ${AWS_REGION} --query "Parameter.Value" --output text 2>/dev/null || echo "http://localhost:8080")
+      BACKEND_URL=$(aws ssm get-parameter --name "/${PROJECT_NAME}/backend-alb-dns" --region ${AWS_REGION} --query "Parameter.Value" --output text 2>/dev/null || echo "http://localhost:8080")
       echo "Using backend URL: ${BACKEND_URL}"
     - docker build -t ${FRONTEND_IMAGE_TAG} \
       --build-arg NEXT_PUBLIC_SERVER_URL=${BACKEND_URL} \
@@ -253,7 +253,7 @@ build-backend:
     - docker:20.10.16-dind
   script:
     - aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
-    - FRONTEND_URL=$(aws ssm get-parameter --name "/${PROJECT_NAME}/main-alb" --region ${AWS_REGION} --query "Parameter.Value" --output text 2>/dev/null || echo "https://app.${PROJECT_NAME}.com")
+    - FRONTEND_URL=$(aws ssm get-parameter --name "/${PROJECT_NAME}/internal-certificate" --region ${AWS_REGION} --query "Parameter.Value" --output text 2>/dev/null || echo "https://app.${PROJECT_NAME}.com")
     - docker build -t ${BACKEND_IMAGE_TAG} \
       --build-arg CLIENT_URL=${FRONTEND_URL} \
       --build-arg PROJECT_NAME=${PROJECT_NAME} \
