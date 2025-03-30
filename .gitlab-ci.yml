@@ -293,9 +293,8 @@ deploy-frontend:
         - client/**
         - docker/web-app.Dockerfile
   needs:
-    - infrastructure-check
     - build-frontend
-    - build-backend
+    
 # Deploy Backend to ECS with Rolling Deployment
 deploy-backend:
   extends: 
@@ -329,9 +328,7 @@ deploy-backend:
         - server/**
         - docker/server.Dockerfile
   needs:
-    - infrastructure-check
     - build-backend
-    - build-frontend
 
 # Verify Frontend Deployment
 verify-frontend-deployment:
@@ -359,9 +356,6 @@ verify-frontend-deployment:
         - client/**
         - docker/web-app.Dockerfile
   needs:
-    - infrastructure-check
-    - build-frontend
-    - build-backend
     - deploy-frontend
 
 # Verify Backend Deployment
@@ -390,10 +384,7 @@ verify-backend-deployment:
         - server/**
         - docker/server.Dockerfile
   needs:
-    - infrastructure-check
-    - build-frontend
     - build-backend
-    - deploy-frontend
 
 # Manual rollback for Frontend
 rollback-frontend:
@@ -419,11 +410,7 @@ rollback-frontend:
         - client/**
         - docker/web-app.Dockerfile
   needs:
-    - infrastructure-check
-    - build-frontend
-    - build-backend
     - deploy-frontend
-    - deploy-backend
     - verify-frontend-deployment
 
 # Manual rollback for Backend
@@ -450,10 +437,6 @@ rollback-backend:
         - server/**
         - docker/server.Dockerfile
   needs:
-    - infrastructure-check
-    - build-frontend
-    - build-backend
-    - deploy-frontend
     - deploy-backend
     - verify-frontend-deployment
 
