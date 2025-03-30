@@ -450,11 +450,33 @@ workflow:
       when: never
     - when: always
 
-
-test-job:
+test-docker-image:
   stage: pre-check
-  image: alpine:latest
+  image: docker:20.10.16
   script:
-    - echo "This is a test job"
+    - echo "Testing with Docker image but no services"
   rules:
     - when: always
+
+test-docker-dind:
+  stage: pre-check
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  script:
+    - echo "Testing with Docker image and Docker-in-Docker service"
+  rules:
+    - when: always
+
+test-build-job:
+  extends: .aws-base
+  stage: build
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  script:
+    - echo "This is a simplified build job"
+  rules:
+    - when: always
+  needs:
+    - infrastructure-check
