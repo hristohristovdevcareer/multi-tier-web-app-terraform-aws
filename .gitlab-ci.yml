@@ -227,7 +227,8 @@ build-frontend:
     - docker push ${FRONTEND_IMAGE_TAG}
   rules:
     - changes:
-        - always
+        - client/**
+        - docker/web-app.Dockerfile
   needs:
     - infrastructure-check
 
@@ -253,6 +254,8 @@ build-backend:
     - changes:
         - server/**
         - docker/server.Dockerfile
+  needs:
+    - infrastructure-check
 
 # Deploy Frontend to ECS with Rolling Deployment
 deploy-frontend:
@@ -285,14 +288,14 @@ deploy-frontend:
     paths:
       - frontend-previous-task-def.txt
     expire_in: 1 day
-  environment:
-    name: production
   rules:
     - changes:
-        - always
+        - client/**
+        - docker/web-app.Dockerfile
   needs:
+    - infrastructure-check
     - build-frontend
-
+    - build-backend
 # Deploy Backend to ECS with Rolling Deployment
 deploy-backend:
   extends: 
@@ -321,12 +324,14 @@ deploy-backend:
     paths:
       - backend-previous-task-def.txt
     expire_in: 1 day
-  environment:
-    name: production
   rules:
     - changes:
         - server/**
         - docker/server.Dockerfile
+  needs:
+    - infrastructure-check
+    - build-backend
+    - build-frontend
 
 # Verify Frontend Deployment
 verify-frontend-deployment:
@@ -351,7 +356,13 @@ verify-frontend-deployment:
       echo "Frontend deployment successful!"
   rules:
     - changes:
-        - always
+        - client/**
+        - docker/web-app.Dockerfile
+  needs:
+    - infrastructure-check
+    - build-frontend
+    - build-backend
+    - deploy-frontend
 
 # Verify Backend Deployment
 verify-backend-deployment:
@@ -378,6 +389,11 @@ verify-backend-deployment:
     - changes:
         - server/**
         - docker/server.Dockerfile
+  needs:
+    - infrastructure-check
+    - build-frontend
+    - build-backend
+    - deploy-frontend
 
 # Manual rollback for Frontend
 rollback-frontend:
@@ -398,11 +414,17 @@ rollback-frontend:
       # Wait for service to stabilize
       echo "Rolling back to previous version..."
       aws ecs wait services-stable --cluster ${ECS_CLUSTER_NAME} --services ${FRONTEND_SERVICE_NAME} --region ${AWS_REGION}
-  environment:
-    name: production
   rules:
     - changes:
-        - always
+        - client/**
+        - docker/web-app.Dockerfile
+  needs:
+    - infrastructure-check
+    - build-frontend
+    - build-backend
+    - deploy-frontend
+    - deploy-backend
+    - verify-frontend-deployment
 
 # Manual rollback for Backend
 rollback-backend:
@@ -423,12 +445,17 @@ rollback-backend:
       # Wait for service to stabilize
       echo "Rolling back to previous version..."
       aws ecs wait services-stable --cluster ${ECS_CLUSTER_NAME} --services ${BACKEND_SERVICE_NAME} --region ${AWS_REGION}
-  environment:
-    name: production
   rules:
     - changes:
         - server/**
         - docker/server.Dockerfile
+  needs:
+    - infrastructure-check
+    - build-frontend
+    - build-backend
+    - deploy-frontend
+    - deploy-backend
+    - verify-frontend-deployment
 
 workflow:
   rules:
