@@ -227,8 +227,46 @@ build-frontend:
   script:
     - aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
     - |
+      echo "Listing all parameters with prefix /${PROJECT_NAME}/"
+      aws ssm get-parameters-by-path --path "/${PROJECT_NAME}/" --region ${AWS_REGION} || echo "Failed to list parameters or none exist"
+      
+      echo "Trying /${PROJECT_NAME}/backend-alb-dns"
+      BACKEND_URL=$(aws ssm get-parameter --name "/${PROJECT_NAME}/backend-alb-dns" --region ${AWS_REGION} --query "Parameter.Value" --output text 2>/dev/null || echo "Not found")
+      echo "Result: $BACKEND_URL"
+      
+      BACKEND_URL2=$(aws ssm get-parameter --name "/${PROJECT_NAME}/backend-alb" --region ${AWS_REGION} --query "Parameter.Value" --output text 2>/dev/null || echo "Not found")
+      echo "Result: $BACKEND_URL2"
+      
+      echo "Trying /${PROJECT_NAME}/main-alb"
+      BACKEND_URL3=$(aws ssm get-parameter --name "/${PROJECT_NAME}/main-alb" --region ${AWS_REGION} --query "Parameter.Value" --output text 2>/dev/null || echo "Not found")
+      echo "Result: $BACKEND_URL3"
+
+      echo "Trying /${PROJECT_NAME}/internal-certificate"
+      BACKEND_URL3=$(aws ssm get-parameter --name "/${PROJECT_NAME}/internal-certificate" --region ${AWS_REGION} --query "Parameter.Value" --output text 2>/dev/null || echo "Not found")
+      echo "Result: $BACKEND_URL4"
+      
+      
+      # Use the first non-"Not found" value, or fallback to localhost
+      if [ "$BACKEND_URL" != "Not found" ]; then
+        FINAL_BACKEND_URL="$BACKEND_URL"
+      elif [ "$BACKEND_URL2" != "Not found" ]; then
+        FINAL_BACKEND_URL="$BACKEND_URL2"
+      elif [ "$BACKEND_URL3" != "Not found" ]; then
+        FINAL_BACKEND_URL="$BACKEND_URL3"
+      elif [ "$BACKEND_URL4" != "Not found" ]; then
+        FINAL_BACKEND_URL="$BACKEND_URL4"
+      else
+        FINAL_BACKEND_URL="http://localhost:8080"
+        echo "None of the parameter attempts succeeded. Using fallback URL."
+      fi
+      
+      echo "Final backend URL: $FINAL_BACKEND_URL"
+      
+      
       # Get backend URL with fallback
       BACKEND_URL=$(aws ssm get-parameter --name "/${PROJECT_NAME}/backend-alb-dns" --region ${AWS_REGION} --query "Parameter.Value" --output text 2>/dev/null || echo "http://localhost:8080")
+      
+      
       echo "Using backend URL: ${BACKEND_URL}"
       echo "Validating variables: ${BACKEND_URL}"
     - docker build -t ${FRONTEND_IMAGE_TAG} \
