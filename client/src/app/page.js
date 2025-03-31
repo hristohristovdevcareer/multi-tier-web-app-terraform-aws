@@ -6,7 +6,9 @@ export default function Home() {
   return (
     <section className="flex flex-col py-20">
       <Header title="Hello Everyone!" description="This is a great first devops project!" />
-      <hr></hr>
+      <div className="w-full max-w-96 mx-auto my-5">
+        <hr></hr>
+      </div>
       <Content />
     </section>
   );
