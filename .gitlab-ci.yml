@@ -428,6 +428,8 @@ verify-frontend-deployment:
     - .aws-base
     - .validate-variables
   stage: verify
+  before_script:
+    - apk add --no-cache aws-cli jq
   script:
     - |
       # Wait for service to stabilize
@@ -454,6 +456,8 @@ verify-backend-deployment:
     - .aws-base
     - .validate-variables
   stage: verify
+  before_script:
+    - apk add --no-cache aws-cli jq
   script:
     - |
       # Wait for service to stabilize
