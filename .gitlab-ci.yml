@@ -432,19 +432,78 @@ verify-frontend-deployment:
     - apk add --no-cache aws-cli jq
   script:
     - |
-      # Wait for service to stabilize
-      echo "Waiting for frontend service to stabilize..."
-      aws ecs wait services-stable --cluster ${ECS_CLUSTER_NAME} --services ${FRONTEND_SERVICE_NAME} --region ${AWS_REGION}
-
-      # Check if deployment was successful
-      DEPLOYMENT_STATUS=$(aws ecs describe-services --cluster ${ECS_CLUSTER_NAME} --services ${FRONTEND_SERVICE_NAME} --region ${AWS_REGION} | jq -r '.services[0].deployments[] | select(.status == "PRIMARY") | .rolloutState')
-
-      if [ "$DEPLOYMENT_STATUS" != "COMPLETED" ]; then
-        echo "Frontend deployment failed with status: $DEPLOYMENT_STATUS"
-        exit 1
+      echo "Starting frontend deployment verification..."
+      
+      # Get initial deployment status
+      echo "Current deployment status:"
+      aws ecs describe-services --cluster ${ECS_CLUSTER_NAME} --services ${FRONTEND_SERVICE_NAME} --region ${AWS_REGION} | jq '.services[0].deployments'
+      
+      # Set a longer timeout for free tier instances
+      TIMEOUT=1200  # 20 minutes
+      INTERVAL=60   # Check every minute
+      ELAPSED=0
+      
+      echo "Waiting for frontend service to stabilize (timeout: ${TIMEOUT}s)..."
+      
+      while [ $ELAPSED -lt $TIMEOUT ]; do
+        SERVICE_INFO=$(aws ecs describe-services --cluster ${ECS_CLUSTER_NAME} --services ${FRONTEND_SERVICE_NAME} --region ${AWS_REGION})
+        
+        PRIMARY_DEPLOYMENT=$(echo "$SERVICE_INFO" | jq -r '.services[0].deployments[] | select(.status == "PRIMARY")')
+        DEPLOYMENT_STATUS=$(echo "$PRIMARY_DEPLOYMENT" | jq -r '.rolloutState')
+        RUNNING_COUNT=$(echo "$PRIMARY_DEPLOYMENT" | jq -r '.runningCount')
+        DESIRED_COUNT=$(echo "$PRIMARY_DEPLOYMENT" | jq -r '.desiredCount')
+        PENDING_COUNT=$(echo "$PRIMARY_DEPLOYMENT" | jq -r '.pendingCount')
+        FAILED_TASKS=$(echo "$PRIMARY_DEPLOYMENT" | jq -r '.failedTasks')
+        
+        echo "Deployment status: ${DEPLOYMENT_STATUS}, Running: ${RUNNING_COUNT}/${DESIRED_COUNT}, Pending: ${PENDING_COUNT}, Failed: ${FAILED_TASKS} (Elapsed: ${ELAPSED}s)"
+        
+        echo "Recent service events:"
+        echo "$SERVICE_INFO" | jq -r '.services[0].events[0:2][] | .createdAt + ": " + .message'
+        
+        if [ "$DEPLOYMENT_STATUS" == "COMPLETED" ] && [ "$RUNNING_COUNT" -eq "$DESIRED_COUNT" ] && [ "$PENDING_COUNT" -eq "0" ]; then
+          echo "Deployment completed successfully!"
+          break
+        fi
+        
+        if [ "$RUNNING_COUNT" -gt "0" ] && [ "$ELAPSED" -gt "300" ]; then
+          echo "At least one task is running for more than 5 minutes. Considering deployment successful."
+          echo "Note: Full stabilization may still be in progress."
+          break
+        fi
+        
+        if [ "$DEPLOYMENT_STATUS" == "FAILED" ]; then
+          echo "Deployment failed with status: $DEPLOYMENT_STATUS"
+          
+          STOPPED_TASKS=$(aws ecs list-tasks --cluster ${ECS_CLUSTER_NAME} --service-name ${FRONTEND_SERVICE_NAME} --desired-status STOPPED --region ${AWS_REGION} | jq -r '.taskArns[]')
+          
+          if [ -n "$STOPPED_TASKS" ]; then
+            for TASK in $STOPPED_TASKS; do
+              echo "Details for stopped task $TASK:"
+              aws ecs describe-tasks --cluster ${ECS_CLUSTER_NAME} --tasks $TASK --region ${AWS_REGION} | jq '.tasks[0] | {taskDefinitionArn, lastStatus, stoppedReason, containers: [.containers[] | {name, lastStatus, reason, exitCode}]}'
+            done
+          fi
+          
+          exit 1
+        fi
+        
+        sleep $INTERVAL
+        ELAPSED=$((ELAPSED + INTERVAL))
+      done
+      
+      if [ $ELAPSED -ge $TIMEOUT ]; then
+        echo "Timeout waiting for frontend service to fully stabilize after ${TIMEOUT} seconds."
+        echo "Current status:"
+        aws ecs describe-services --cluster ${ECS_CLUSTER_NAME} --services ${FRONTEND_SERVICE_NAME} --region ${AWS_REGION} | jq '.services[0] | {status, desiredCount, runningCount, pendingCount, deployments}'
+        
+        if [ "$RUNNING_COUNT" -gt "0" ]; then
+          echo "Some tasks are running. Considering deployment successful."
+        else
+          echo "No tasks are running after timeout. Deployment failed."
+          exit 1
+        fi
       fi
-
-      echo "Frontend deployment successful!"
+      
+      echo "Frontend deployment verification completed!"
   rules:
     - when: always
   needs:

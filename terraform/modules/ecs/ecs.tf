@@ -53,7 +53,7 @@ resource "aws_ecs_capacity_provider" "frontend_capacity_provider" {
       minimum_scaling_step_size = 1
       status                    = "ENABLED"
       target_capacity           = 100
-      instance_warmup_period    = 300
+      instance_warmup_period    = 180
     }
     managed_termination_protection = "ENABLED"
   }
@@ -70,7 +70,7 @@ resource "aws_ecs_capacity_provider" "backend_capacity_provider" {
       minimum_scaling_step_size = 1
       status                    = "ENABLED"
       target_capacity           = 100
-      instance_warmup_period    = 300
+      instance_warmup_period    = 180
     }
     managed_termination_protection = "ENABLED"
   }
@@ -245,10 +245,10 @@ resource "aws_ecs_service" "frontend-service" {
   cluster                           = aws_ecs_cluster.main.id
   task_definition                   = aws_ecs_task_definition.frontend-task-definition.arn
   desired_count                     = 1
-  health_check_grace_period_seconds = 600
+  health_check_grace_period_seconds = 120
 
-  deployment_minimum_healthy_percent = 25
-  deployment_maximum_percent         = 150
+  deployment_minimum_healthy_percent = 100
+  deployment_maximum_percent         = 200
 
   ordered_placement_strategy {
     type  = "spread"
@@ -284,9 +284,9 @@ resource "aws_ecs_service" "backend-service" {
   cluster                           = aws_ecs_cluster.main.id
   task_definition                   = aws_ecs_task_definition.backend-task-definition.arn
   desired_count                     = 1
-  health_check_grace_period_seconds = 600
+  health_check_grace_period_seconds = 120 //180 for testing, 300 for production
 
-  deployment_minimum_healthy_percent = 50
+  deployment_minimum_healthy_percent = 100
   deployment_maximum_percent         = 200
 
   ordered_placement_strategy {
