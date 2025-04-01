@@ -227,6 +227,30 @@ The infrastructure implements a sophisticated rolling deployment strategy that e
 
 The implementation leverages CI/CD pipelines to orchestrate the deployment sequence, with careful coordination between instance termination and new instance provisioning to maintain capacity requirements. This capability represents a significant step toward enterprise-grade operational maturity.
 
-## Future Enhancements ##
+## Future Potential Enhancements ##
+
+**More powerful resources in order to make the project fully production-grade**
+
+**Replacing custom NAT in cases where security is critical due to better default configuration and management**
+
+**Utilisation of ECS-optimised AMI's and OS's for a more standardised infrastructure**
+
+**Enhancing security on the custon NAT instance**
+
+**Implementing an API Gateway that could replace the current certification management**
+
+**Add database to infrastructure**
+
+**Disaster recovery for data**
+
+**Implement remote state management**
+
+**Implement AWS WAF**
+
+**Further testing implementation for pipeline**
+
+**Enhanced monitoring and alerts**
+
+**Fine-grained scaling according to use-case**
 
 ## Development Journey and Notes ##
