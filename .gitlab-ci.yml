@@ -274,7 +274,10 @@ build-backend:
       -f docker/server.Dockerfile ./server
     - docker push ${BACKEND_IMAGE_TAG}
   rules:
-    - when: always
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - server/**/*
+        - docker/server.Dockerfile
   needs:
     - infrastructure-check
 
