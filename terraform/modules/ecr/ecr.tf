@@ -57,7 +57,14 @@ resource "null_resource" "docker_build_and_push" {
       export IMAGE_TAG="${var.IMAGE_TAG}"
       export NEXT_PUBLIC_SERVER_URL="${var.NEXT_PUBLIC_SERVER_URL}"
       export AWS_REGION="${var.AWS_REGION}"
-      export NODE_EXTRA_CA_CERTS="${var.NODE_EXTRA_CA_CERTS}"
+      
+      # For web_app, fetch the certificate and create a temporary certificate file
+      if [ "${each.key}" = "web_app" ]; then
+        echo "Fetching certificate for web app..."
+        mkdir -p ./client/certs
+        aws ssm get-parameter --name "/${var.PROJECT_NAME}/internal-certificate" --with-decryption --query "Parameter.Value" --output text --region ${var.AWS_REGION} > ./client/certs/internal-ca.crt
+        export NODE_EXTRA_CA_CERTS="/app/certs/internal-ca.crt"
+      fi
 
       # Build with both build args and environment variables
       docker compose -f ${each.value.docker_compose} build \
@@ -65,7 +72,6 @@ resource "null_resource" "docker_build_and_push" {
         --build-arg PROJECT_NAME="${var.PROJECT_NAME}" \
         --build-arg IMAGE_TAG="${var.IMAGE_TAG}" \
         --build-arg AWS_REGION="${var.AWS_REGION}" \
-        --build-arg NODE_EXTRA_CA_CERTS="${var.NODE_EXTRA_CA_CERTS}"
         --build-arg CLIENT_URL="${var.CLIENT_URL}"
 
       # Login to ECR
@@ -75,6 +81,11 @@ resource "null_resource" "docker_build_and_push" {
       # Tag and push
       docker tag ${each.value.project_name}:${var.IMAGE_TAG} ${each.value.repo_url}:${var.IMAGE_TAG}
       docker push ${each.value.repo_url}:${var.IMAGE_TAG}
+      
+      # Clean up the certificate file
+      if [ "${each.key}" = "web_app" ]; then
+        rm -rf ./client/certs
+      fi
     EOT
   }
 
