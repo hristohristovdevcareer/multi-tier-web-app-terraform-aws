@@ -11,11 +11,11 @@ While numerous enhancements could be implemented (such as more sophisticated con
 
 - Gitlab account
 - AWS account
-- AWS CLI installed
-- AWS credentials configured locally
+- AWS CLI v2 installed
+- AWS credentials configured
 - Cloudflare account
 - Cloudflare registered domain name
-- Terraform
+- Terraform 
 - Hashicorp Vault
 - Docker & Docker Compose
 - Node.js for server/client setup and management
@@ -24,12 +24,15 @@ While numerous enhancements could be implemented (such as more sophisticated con
 
 
 ## Project setup ##
-1. Relocate to the terraform folder
-2. Fill environment variable values in .env according to the provided example
-3. Make all script files executable (look at "**Automated Setup**" section for instructions)
-4. Apply environment variables to environment (script: set-env-vars.sh)
-5. Set up Vault (Setup instructions underneath)
-6. Run terraform  with `terraform plan` and then `terraform apply`
+1. Install locally: Node, Terraform, Vault, Docker & Docker Compose, jq, Git
+2. Add AWS access credentials locally using `aws configure`
+3. Pull project locally from Gitlab
+4. Relocate to the terraform folder
+5. Fill environment variable values in .env according to the provided example
+6. Make all script files executable (look at "**Automated Setup**" section for instructions)
+7. Apply environment variables to environment (script: set-env-vars.sh)
+8. Set up Vault (Setup instructions underneath)
+9. Run terraform  with `terraform plan` and then `terraform apply`
 
 ## Vault setup ##
 
@@ -43,9 +46,9 @@ While numerous enhancements could be implemented (such as more sophisticated con
 Variables that need to be set in vault:
 1. Group - ec2_ssh \
     1.1. var - ec2_ssh_public_key \
-    1.2. var - nat_ssh_private_key
+    1.2. var (base64 encoded) - nat_ssh_private_key
 2. Group - gitlab_keys \
-    2.1. var - gitlab_private_key \
+    2.1. var (base64 encoded) - gitlab_private_key \
     2.2. var - gitlab_public_key
 3. Group - db_credentials \
     3.1. var - username \
@@ -55,11 +58,12 @@ Variables that need to be set in vault:
     4.2. var - cloudflare_zone_id
 
 ### Automated Setup ###
-1. From the terraform folder, make the init_vault.sh script executable:
+1. Add secrets to vault.json according to vault.example.json located in the terraform folder
+2. From the terraform folder, make the init_vault.sh script executable:
 `chmod -x init_vault.sh`
-2. Run init_vault.sh
+3. Run init_vault.sh
 `source init_vault.sh`
-3. Copy the displayed token after the script is ran and use it to login to the provided vault address
+4. Copy the displayed token after the script is ran and use it to login to the provided vault address
 
 
 ## Project Context ##
