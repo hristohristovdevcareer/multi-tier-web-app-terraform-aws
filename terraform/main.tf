@@ -1,13 +1,14 @@
 terraform {
   required_version = "~>1.8"
+  backend "s3" {
+    bucket         = "multi-tier-aws-app-terraform-state-bucket"
+    key            = "terraform.tfstate"
+    region         = "eu-central-1"
+    encrypt        = true
+    acl            = "bucket-owner-full-control"
+    use_lockfile   = true
+  }
 
-  # backend "s3" {
-  #   bucket         = "multi-tier-aws-app-terraform-state-bucket"
-  #   key            = "terraform.tfstate"
-  #   region         = "eu-central-1"
-  #   dynamodb_table = "multi-tier-aws-app-terraform-state-lock"
-  #   encrypt        = true
-  # }
 
   required_providers {
     vault = {
@@ -35,13 +36,6 @@ resource "aws_key_pair" "ec2" {
   key_name   = "ec-2-key"
   public_key = data.vault_generic_secret.ec2_ssh_public_key.data["ec2_ssh_public_key"]
   depends_on = [module.vault]
-}
-
-module "tf_state" {
-  source = "./modules/tf-state"
-
-  TF_STATE_BUCKET_NAME = local.BUCKET_NAME
-  TABLE_NAME           = local.TABLE_NAME
 }
 
 module "vpc" {

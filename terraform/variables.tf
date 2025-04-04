@@ -140,3 +140,13 @@ variable "AVAILABILITY_ZONES" {
   description = "Availability zones"
   type        = list(string)
 }
+
+variable "ENABLE_STATE_MANAGEMENT" {
+  description = "Enable state management"
+  type        = bool
+}
+
+variable "BUCKET_NAME" {
+  type        = string
+  description = "The name of the S3 bucket to store the Terraform state"
+}

@@ -5,7 +5,7 @@ This project represents a comprehensive journey into advanced DevOps practices, 
 
 The infrastructure implements industry best practices across multiple domains: high availability through multi-AZ deployment, security through defense-in-depth principles, cost optimization through strategic resource selection, and automation through Infrastructure as Code. The project deliberately focuses on AWS services due to their market dominance and free tier offerings, providing valuable hands-on experience with industry-standard tools.
 
-While numerous enhancements could be implemented (such as more sophisticated container orchestration through Kubernetes, advanced security measures, or comprehensive monitoring solutions), the project's scope was intentionally bounded to demonstrate practical DevOps skills while maintaining forward momentum in professional development. The infrastructure serves as a foundation for future exploration of advanced concepts in CI/CD, security hardening, and automated operations.
+While numerous enhancements could be implemented (such as more sophisticated container orchestration through Kubernetes, advanced security measures, or comprehensive monitoring solutions), the project's scope was intentionally bounded to demonstrate practical DevOps skills while maintaining forward momentum in professional development. The infrastructure serves as a foundation for future exploration of advanced concepts in CI/CD, security hardening, and automated operations. Furthermore, there is plenty of room for cleanup and improvements on smaller-scale parts of the infrastructure like NAT, ECS agent setup, monitoring, and other general amends.
 
 ## Prerequisites ##
 

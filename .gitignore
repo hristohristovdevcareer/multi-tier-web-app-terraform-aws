@@ -19,3 +19,5 @@ vault.json
 */vault_output.txt
 terraform/.terraform.tfstate.lock.info
 *.crt
+terraform/tf-state/.terraform.tfstate.lock.info
+terraform/tf-state/.terraform/
