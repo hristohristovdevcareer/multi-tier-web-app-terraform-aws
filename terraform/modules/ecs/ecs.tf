@@ -53,7 +53,7 @@ resource "aws_ecs_capacity_provider" "frontend_capacity_provider" {
       minimum_scaling_step_size = 1
       status                    = "ENABLED"
       target_capacity           = 100
-      instance_warmup_period    = 180
+      instance_warmup_period    = 240
     }
     managed_termination_protection = "ENABLED"
   }
@@ -70,7 +70,7 @@ resource "aws_ecs_capacity_provider" "backend_capacity_provider" {
       minimum_scaling_step_size = 1
       status                    = "ENABLED"
       target_capacity           = 100
-      instance_warmup_period    = 180
+      instance_warmup_period    = 240
     }
     managed_termination_protection = "ENABLED"
   }

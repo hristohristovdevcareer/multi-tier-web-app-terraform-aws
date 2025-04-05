@@ -32,7 +32,8 @@ While numerous enhancements could be implemented (such as more sophisticated con
 6. Make all script files executable (look at "**Automated Setup**" section for instructions)
 7. Apply environment variables to environment (script: set-env-vars.sh)
 8. Set up Vault (Setup instructions underneath)
-9. Run terraform  with `terraform plan` and then `terraform apply`
+9. Set up state management by creating an S3 bucket
+10. Run terraform  with `terraform plan` and then `terraform apply` (requires point 9 to be done)
 
 ## Vault setup ##
 
@@ -65,6 +66,14 @@ Variables that need to be set in vault:
 `source init_vault.sh`
 4. Copy the displayed token after the script is ran and use it to login to the provided vault address
 
+## State Setup ##
+From the main terraform folder, after setting up Vault:
+1. Run `terraform -chdir=tf-state init`
+2. Run `terraform -chdir=tf-state plan`
+3. Run `terraform -chdir=tf-state apply`
+
+When cleaning up, AFTER destroying the infrastructure, destroy the state management S3 bucket:
+1. Run `terraform -chdir=tf-state destroy`
 
 ## Project Context ##
 

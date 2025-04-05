@@ -9,7 +9,6 @@ terraform {
     use_lockfile   = true
   }
 
-
   required_providers {
     vault = {
       source = "hashicorp/vault"

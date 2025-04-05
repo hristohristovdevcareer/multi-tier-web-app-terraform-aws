@@ -61,8 +61,8 @@ resource "null_resource" "docker_build_and_push" {
       # For web_app, fetch the certificate and create a temporary certificate file
       if [ "${each.key}" = "web_app" ]; then
         echo "Fetching certificate for web app..."
-        mkdir -p ./client/certs
-        aws ssm get-parameter --name "/${var.PROJECT_NAME}/internal-certificate" --with-decryption --query "Parameter.Value" --output text --region ${var.AWS_REGION} > ./client/certs/internal-ca.crt
+        mkdir -p ../client/certs
+        aws ssm get-parameter --name "/${var.PROJECT_NAME}/internal-certificate" --with-decryption --query "Parameter.Value" --output text --region ${var.AWS_REGION} > ../client/certs/internal-ca.crt
         export NODE_EXTRA_CA_CERTS="/app/certs/internal-ca.crt"
       fi
 
