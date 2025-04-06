@@ -29,11 +29,13 @@ While numerous enhancements could be implemented (such as more sophisticated con
 3. Pull project locally from Gitlab
 4. Relocate to the terraform folder
 5. Fill environment variable values in .env according to the provided example
-6. Make all script files executable (look at "**Automated Setup**" section for instructions)
-7. Apply environment variables to environment (script: set-env-vars.sh)
-8. Set up Vault (Setup instructions underneath)
-9. Set up state management by creating an S3 bucket
-10. Run terraform  with `terraform plan` and then `terraform apply` (requires point 9 to be done)
+6. Either make setup.sh executable and run it, or continue with manual setup for each script (if chosen setup.sh, jump to point 10). !Note that any errors due to missing environment variables might require a re-run of setup.sh
+7. Make all script files executable (look at "**Automated Setup**" section for example instructions)
+8. Apply environment variables to environment `source ./scripts/set-env-vars.sh`
+9. Set up Vault (Setup instructions underneath)
+10. Test if all required environment variables are set with `source ./scripts/validate-env.sh`
+11. Set up state management by creating an S3 bucket
+12. Run terraform  with `terraform plan` and then `terraform apply` (requires point 9 to be done)
 
 ## Vault setup ##
 
@@ -63,7 +65,7 @@ Variables that need to be set in vault:
 2. From the terraform folder, make the init_vault.sh script executable:
 `chmod -x init_vault.sh`
 3. Run init_vault.sh
-`source init_vault.sh`
+`source ./scripts/init_vault.sh`
 4. Copy the displayed token after the script is ran and use it to login to the provided vault address
 
 ## State Setup ##

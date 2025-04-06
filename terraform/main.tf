@@ -111,30 +111,12 @@ module "iam" {
 
 }
 
-# Store the internal certificate in SSM Parameter Store
-resource "aws_ssm_parameter" "internal_certificate" {
-  name        = "/${var.PROJECT_NAME}/internal-certificate"
-  description = "Internal self-signed certificate for backend services"
-  type        = "SecureString"
-  value       = module.alb.internal_certificate_pem
+module "sm" {
+  source = "./modules/sm"
 
-  tags = {
-    Name        = "${var.PROJECT_NAME}-internal-certificate"
-    Environment = "production"
-  }
-}
-
-# Store the backend ALB DNS name in SSM Parameter Store
-resource "aws_ssm_parameter" "backend_alb_dns" {
-  name        = "/${var.PROJECT_NAME}/backend-alb-dns"
-  description = "Backend ALB DNS name for frontend to connect to"
-  type        = "String"
-  value       = "https://${module.alb.backend_alb_dns_name}"
-
-  tags = {
-    Name        = "${var.PROJECT_NAME}-backend-alb-dns"
-    Environment = "production"
-  }
+  PROJECT_NAME = var.PROJECT_NAME
+  INTERNAL_CERTIFICATE = module.alb.internal_certificate_pem
+  BACKEND_ALB_DNS_NAME = module.alb.backend_alb_dns_name
 }
 
 module "ecs" {
@@ -177,3 +159,10 @@ module "ecs" {
   depends_on                       = [module.vault]
 }
 
+module "cloudwatch" {
+  source = "./modules/cloudwatch"
+
+  PROJECT_NAME = var.PROJECT_NAME
+  REGION       = var.REGION
+  ECS_CLUSTER_NAME = module.ecs.ecs_cluster_name
+}
